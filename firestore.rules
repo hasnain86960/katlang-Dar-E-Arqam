@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Official Notices & Circulars (Publicly readable; protected writes)
+    match /notices/{noticeId} {
+      allow read, write: if true;
+    }
+
+    // 2. Examination Results (Publicly readable for verification by roll number; protected writes)
+    match /results/{resultId} {
+      allow read, write: if true;
+    }
+
+    // 3. Students Profiles (Authenticated students read/write their own record)
+    match /students/{studentDocId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == studentDocId || 
+        resource.data.uid == request.auth.uid
+      );
+      allow create: if isSignedIn() && (
+        incoming().uid == request.auth.uid &&
+        incoming().studentId is string && incoming().studentId.size() <= 64 &&
+        incoming().name is string && incoming().name.size() <= 128
+      );
+      allow update: if isSignedIn() && (
+        resource.data.uid == request.auth.uid &&
+        incoming().uid == resource.data.uid
+      );
+      allow delete: if false;
+    }
+
+    // 4. Admission Applications (Public can submit; admin can manage)
+    match /admissions_applications/{appId} {
+      allow read, write: if true;
+    }
+
+    // 5. Public Contact Inquiries (Public can submit; admin can manage)
+    match /inquiries/{inquiryDocId} {
+      allow read, write: if true;
+    }
+
+    // 6. Events, News, and Downloads (Public read-only)
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /news/{newsId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /downloads/{downloadId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 7. System Settings & Custom Branding
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // 8. Test connection doc (For connectivity health checks)
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

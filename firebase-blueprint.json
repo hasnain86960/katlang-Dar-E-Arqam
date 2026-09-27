@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "Notice": {
+      "title": "Notice",
+      "description": "Institutional notice or official circular issued by DARE ARQAM",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "refNo": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["Admissions", "Academic", "Examination", "Administrative", "General"] },
+        "date": { "type": "string" },
+        "summary": { "type": "string" },
+        "fullText": { "type": "string" },
+        "isImportant": { "type": "boolean" },
+        "issuedBy": { "type": "string" },
+        "fileSize": { "type": "string" }
+      },
+      "required": ["refNo", "title", "category", "date", "summary", "fullText", "issuedBy"]
+    },
+    "StudentResult": {
+      "title": "StudentResult",
+      "description": "Official examination transcript and marksheet record",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "rollNumber": { "type": "string" },
+        "studentName": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "className": { "type": "string" },
+        "section": { "type": "string" },
+        "examination": { "type": "string" },
+        "session": { "type": "string" },
+        "examDate": { "type": "string" },
+        "subjects": { "type": "array" },
+        "totalMarks": { "type": "number" },
+        "obtainedMarks": { "type": "number" },
+        "percentage": { "type": "number" },
+        "overallGrade": { "type": "string" },
+        "resultStatus": { "type": "string" },
+        "positionInClass": { "type": "string" },
+        "remarks": { "type": "string" }
+      },
+      "required": ["studentId", "rollNumber", "studentName", "className", "examination", "totalMarks", "obtainedMarks", "percentage", "overallGrade", "resultStatus"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Enrolled student profile and academic dossier",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "studentId": { "type": "string" },
+        "rollNumber": { "type": "string" },
+        "name": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "dob": { "type": "string" },
+        "gender": { "type": "string" },
+        "bForm": { "type": "string" },
+        "bloodGroup": { "type": "string" },
+        "className": { "type": "string" },
+        "section": { "type": "string" },
+        "session": { "type": "string" },
+        "status": { "type": "string" },
+        "guardianContact": { "type": "string" },
+        "guardianEmail": { "type": "string" },
+        "residentialAddress": { "type": "string" },
+        "emergencyContact": { "type": "string" },
+        "attendancePercentage": { "type": "number" },
+        "totalWorkingDays": { "type": "number" },
+        "presentDays": { "type": "number" },
+        "leavesSanctioned": { "type": "number" },
+        "unexcusedAbsences": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "studentId", "name", "fatherName", "className", "guardianEmail"]
+    },
+    "AdmissionApplication": {
+      "title": "AdmissionApplication",
+      "description": "Application submitted for school admission",
+      "type": "object",
+      "properties": {
+        "applicationRef": { "type": "string" },
+        "candidateName": { "type": "string" },
+        "fatherName": { "type": "string" },
+        "bForm": { "type": "string" },
+        "gender": { "type": "string" },
+        "dob": { "type": "string" },
+        "targetClass": { "type": "string" },
+        "parentPhone": { "type": "string" },
+        "parentEmail": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["applicationRef", "candidateName", "fatherName", "bForm", "targetClass", "parentPhone", "parentEmail", "address"]
+    },
+    "Inquiry": {
+      "title": "Inquiry",
+      "description": "Contact message or institutional inquiry",
+      "type": "object",
+      "properties": {
+        "inquiryId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "category": { "type": "string" },
+        "subject": { "type": "string" },
+        "studentId": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["inquiryId", "name", "email", "category", "subject", "message"]
+    }
+  },
+  "firestore": {
+    "/notices/{noticeId}": {
+      "schema": "Notice",
+      "description": "Official school notices and public circulars"
+    },
+    "/results/{resultId}": {
+      "schema": "StudentResult",
+      "description": "Student academic examination marks and transcripts"
+    },
+    "/students/{studentDocId}": {
+      "schema": "Student",
+      "description": "Enrolled student profiles and records"
+    },
+    "/admissions_applications/{appId}": {
+      "schema": "AdmissionApplication",
+      "description": "Submitted admission forms"
+    },
+    "/inquiries/{inquiryDocId}": {
+      "schema": "Inquiry",
+      "description": "Public contact messages and support inquiries"
+    }
+  }
+}
