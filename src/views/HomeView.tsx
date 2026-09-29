@@ -1,348 +1,291 @@
-import React, { useState, useEffect } from 'react';
-import { PageId, Notice, AcademicEvent } from '../types';
-import { 
-  INSTITUTION_INFO, 
-  NOTICES_DATA, 
-  EVENTS_DATA, 
-  NEWS_DATA 
-} from '../data/mockData';
-import { NoticeCard } from '../components/NoticeCard';
+import React from 'react';
+import { PageId } from '../types';
 import { Emblem } from '../components/Emblem';
 import { 
-  GraduationCap, 
-  UserCheck, 
-  Award, 
-  FileText, 
-  Calendar, 
-  Download, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Clock, 
+  useBranding, 
+  DEFAULT_CAMPUS_BANNER, 
+  DEFAULT_PRINCIPAL_PHOTO 
+} from '../context/BrandingContext';
+import { 
   ArrowRight, 
   ChevronRight, 
-  ShieldCheck, 
   BookOpen, 
-  CheckCircle2, 
-  Sparkles 
+  Moon, 
+  Users, 
+  Target, 
+  Handshake 
 } from 'lucide-react';
-import { fetchNotices, fetchEvents } from '../services/firebaseService';
 
 interface HomeViewProps {
   onNavigate: (page: PageId) => void;
-  onSelectNotice: (notice: Notice) => void;
+  onSelectNotice?: (notice: any) => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onSelectNotice }) => {
-  const [notices, setNotices] = useState<Notice[]>(NOTICES_DATA);
-  const [events, setEvents] = useState<AcademicEvent[]>(EVENTS_DATA);
-
-  useEffect(() => {
-    fetchNotices().then(d => { if (d && d.length > 0) setNotices(d); }).catch(() => {});
-    fetchEvents().then(d => { if (d && d.length > 0) setEvents(d); }).catch(() => {});
-  }, []);
-
-  const importantNotices = notices.slice(0, 3);
-  const upcomingEvents = events.filter(e => e.isUpcoming).slice(0, 3);
-  const latestNews = NEWS_DATA.slice(0, 2);
+export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
+  const { 
+    logoUrl, 
+    bannerUrl, 
+    institutionName, 
+    tagline,
+    principalPhotoUrl,
+    principalName,
+    principalTitle,
+    principalQualification,
+    principalMessage,
+    socialMedia
+  } = useBranding();
 
   return (
-    <div className="space-y-12 sm:space-y-16 pb-8">
-      {/* 1. HERO / WELCOME SECTION */}
-      <section className="relative bg-emerald-950 text-white border-b border-emerald-900 overflow-hidden">
-        {/* Subtle background campus image with institutional scrim */}
-        <div className="absolute inset-0 z-0">
+    <div className="space-y-10 sm:space-y-14 pb-12">
+      {/* 1. HERO / BANNER SECTION WITH CENTER ROUND LOGO */}
+      <section className="relative overflow-hidden bg-[#171852] border-b-2 border-[#F5D900]/40 shadow-xl">
+        {/* Background Cover Banner */}
+        <div className="relative w-full h-28 sm:h-48 md:h-64 lg:h-80 bg-[#0F1035] overflow-hidden">
           <img
-            src="/src/assets/images/campus_main_building_1790434904126.jpg"
-            alt="DARE ARQAM Institutional Campus"
-            className="w-full h-full object-cover object-center opacity-25 filter saturate-75"
+            src={bannerUrl || DEFAULT_CAMPUS_BANNER}
+            alt="DAR - E - ARQAM Campus Hero Banner"
+            className="w-full h-full object-cover object-center filter brightness-95"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-950 via-emerald-950/90 to-emerald-950/80" />
+          {/* Smooth Bottom Blue Color Fading Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#171852] via-[#171852]/40 to-transparent" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-20">
-          <div className="max-w-3xl space-y-5">
-            {/* Institutional Seal Lockup */}
-            <div className="flex items-center gap-3 text-emerald-300 text-xs tracking-wider uppercase font-semibold">
-              <span className="w-8 h-0.5 bg-amber-500 inline-block" />
-              <span>Registered Educational Institution · Est. 1998</span>
+        {/* Hero Content Block Overlapping the Banner */}
+        <div className="relative max-w-5xl mx-auto px-3 sm:px-6 pb-6 sm:pb-10 md:pb-14 text-center">
+          {/* CENTER ROUND LOGO FLANKED BY URDU CALLIGRAPHY MOTTO */}
+          <div className="-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20 flex items-center justify-center gap-2 sm:gap-4 md:gap-6 mb-2.5 sm:mb-3.5 relative z-20 px-1 sm:px-4">
+            {/* Left Box (Green highlight): بہترین آخرت */}
+            <div className="flex-1 flex justify-end items-center pr-1 sm:pr-3 overflow-visible">
+              <span 
+                className="font-jameel-kasheeda text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#FFF000] drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] whitespace-nowrap select-none transition-transform hover:scale-105 py-1"
+                dir="rtl"
+              >
+                بہترین آخرت
+              </span>
             </div>
 
-            <h1 className="font-editorial text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight">
-              DARE ARQAM
+            {/* Central Round Logo */}
+            <div className="p-1 sm:p-1.5 md:p-2 bg-[#171852] rounded-full shadow-lg ring-2 ring-[#FFF000]/40 transition-transform hover:scale-105 shrink-0 z-10">
+              <div className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden bg-white shadow-inner flex items-center justify-center select-none">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt="DAR - E - ARQAM Official Emblem"
+                    className="w-full h-full object-contain p-1 sm:p-1.5 select-none"
+                    loading="eager"
+                  />
+                ) : (
+                  <Emblem size="lg" className="!w-full !h-full" />
+                )}
+              </div>
+            </div>
+
+            {/* Right Box (Red highlight): خوبصورت دنیا */}
+            <div className="flex-1 flex justify-start items-center pl-1 sm:pl-3 overflow-visible">
+              <span 
+                className="font-jameel-kasheeda text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#FFF000] drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] whitespace-nowrap select-none transition-transform hover:scale-105 py-1"
+                dir="rtl"
+              >
+                خوبصورت دنیا
+              </span>
+            </div>
+          </div>
+
+          {/* Underneath Logo: DAR - E - ARQAM Title, Subtitle, & Description */}
+          <div className="space-y-2.5 sm:space-y-3.5 max-w-3xl mx-auto">
+            {/* Accreditation Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-mono tracking-wider uppercase bg-[#20216B] text-[#FFF000] border border-[#F5D900]/40 font-bold shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FFF000] animate-pulse" />
+              <span>Registered Institution · Est. 1998</span>
+            </div>
+
+            {/* Main Title */}
+            <h1 className="font-editorial text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight drop-shadow-md">
+              {institutionName}
             </h1>
 
-            <p className="text-base sm:text-lg text-emerald-100/90 font-prose-serif leading-relaxed max-w-2xl">
+            {/* Campus Tagline */}
+            <div className="text-xs sm:text-base md:text-lg font-bold text-[#FFF000] tracking-wider uppercase [word-spacing:0.14em]">
+              {tagline}
+            </div>
+
+            {/* Institutional Summary */}
+            <p className="text-xs sm:text-sm text-[#EEF0FF]/90 font-prose-serif leading-relaxed max-w-2xl mx-auto font-normal px-2">
               A premier Pakistani educational institution committed to rigorous academic discipline, scientific inquiry, and the moral foundation of students from primary grades through matriculation and higher secondary levels.
             </p>
 
-            {/* Primary & Secondary Actions (Required by prompt) */}
-            <div className="pt-3 flex flex-wrap items-center gap-3 sm:gap-4">
+            {/* Primary & Secondary Call to Actions */}
+            <div className="pt-1.5 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5">
               <button
                 type="button"
                 onClick={() => onNavigate('admission-info')}
-                className="px-6 py-3 text-sm font-semibold text-emerald-950 bg-white hover:bg-emerald-50 rounded-md transition-colors shadow-sm flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2.5 sm:px-6 sm:py-3.5 text-xs sm:text-sm font-extrabold text-[#171852] bg-[#FFF000] hover:bg-[#F5D900] rounded-xl transition-all shadow-lg flex items-center gap-1.5 sm:gap-2 cursor-pointer active:scale-95 border-2 border-[#F5D900]"
               >
                 <span>Admission Information</span>
-                <ArrowRight className="w-4 h-4 text-emerald-900" />
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#171852]" />
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigate('student-login')}
-                className="px-6 py-3 text-sm font-semibold text-white bg-emerald-800/90 hover:bg-emerald-800 border border-emerald-700/60 rounded-md transition-colors cursor-pointer"
+                className="px-4 py-2.5 sm:px-6 sm:py-3.5 text-xs sm:text-sm font-bold text-white bg-[#20216B] hover:bg-[#2A2C8A] border-2 border-[#FFF000]/70 rounded-xl transition-all cursor-pointer shadow-md active:scale-95"
               >
-                Student Login
+                Student Portal Login
               </button>
-            </div>
 
-            {/* Trust credentials bar */}
-            <div className="pt-4 border-t border-emerald-900/60 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-emerald-200/80">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                BISE Curriculum Standard
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Accredited Science & IT Labs
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Character & Ethics Formation
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. IMPORTANT NOTICE SECTION */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-6 pb-3 border-b border-stone-200">
-          <div>
-            <div className="text-xs font-semibold text-emerald-900 tracking-wider uppercase mb-1">
-              Official Directorate
-            </div>
-            <h2 className="font-editorial text-2xl font-bold text-stone-900">
-              Important Notices & Circulars
-            </h2>
-          </div>
-          <button
-            onClick={() => onNavigate('notices')}
-            className="text-xs font-semibold text-emerald-900 hover:text-emerald-700 flex items-center gap-1 hover:underline cursor-pointer"
-          >
-            <span>View All Official Circulars</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {importantNotices.map((notice) => (
-            <NoticeCard
-              key={notice.id}
-              notice={notice}
-              onSelect={onSelectNotice}
-              featured={notice.isImportant}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* 3. QUICK ACCESS SECTION */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="bg-stone-100 border border-stone-200 rounded-lg p-5 sm:p-7">
-          <div className="text-center max-w-xl mx-auto mb-6">
-            <h2 className="font-editorial text-xl sm:text-2xl font-bold text-stone-900">
-              Quick Institutional Access
-            </h2>
-            <p className="text-xs sm:text-sm text-stone-600 mt-1">
-              Direct access to essential student services, academic schedules, and institutional documentation.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-            {/* Admissions */}
-            <button
-              onClick={() => onNavigate('admission-info')}
-              className="p-4 bg-white border border-stone-200 rounded-md hover:border-emerald-800 hover:shadow-xs transition-all text-center flex flex-col items-center justify-center gap-2 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-900 flex items-center justify-center group-hover:bg-emerald-900 group-hover:text-white transition-colors">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-stone-800 group-hover:text-emerald-950">
-                Admissions
-              </span>
-            </button>
-
-            {/* Student Login */}
-            <button
-              onClick={() => onNavigate('student-login')}
-              className="p-4 bg-white border border-stone-200 rounded-md hover:border-emerald-800 hover:shadow-xs transition-all text-center flex flex-col items-center justify-center gap-2 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-900 flex items-center justify-center group-hover:bg-emerald-900 group-hover:text-white transition-colors">
-                <GraduationCap className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-stone-800 group-hover:text-emerald-950">
-                Student Login
-              </span>
-            </button>
-
-            {/* Results */}
-            <button
-              onClick={() => onNavigate('results')}
-              className="p-4 bg-white border border-stone-200 rounded-md hover:border-emerald-800 hover:shadow-xs transition-all text-center flex flex-col items-center justify-center gap-2 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-900 flex items-center justify-center group-hover:bg-emerald-900 group-hover:text-white transition-colors">
-                <Award className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-stone-800 group-hover:text-emerald-950">
-                Results
-              </span>
-            </button>
-
-            {/* Notices */}
-            <button
-              onClick={() => onNavigate('notices')}
-              className="p-4 bg-white border border-stone-200 rounded-md hover:border-emerald-800 hover:shadow-xs transition-all text-center flex flex-col items-center justify-center gap-2 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-900 flex items-center justify-center group-hover:bg-emerald-900 group-hover:text-white transition-colors">
-                <FileText className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-stone-800 group-hover:text-emerald-950">
-                Notices
-              </span>
-            </button>
-
-            {/* Academic Calendar */}
-            <button
-              onClick={() => onNavigate('academic-calendar')}
-              className="p-4 bg-white border border-stone-200 rounded-md hover:border-emerald-800 hover:shadow-xs transition-all text-center flex flex-col items-center justify-center gap-2 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-900 flex items-center justify-center group-hover:bg-emerald-900 group-hover:text-white transition-colors">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-stone-800 group-hover:text-emerald-950">
-                Calendar
-              </span>
-            </button>
-
-            {/* Downloads */}
-            <button
-              onClick={() => onNavigate('downloads')}
-              className="p-4 bg-white border border-stone-200 rounded-md hover:border-emerald-800 hover:shadow-xs transition-all text-center flex flex-col items-center justify-center gap-2 group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-900 flex items-center justify-center group-hover:bg-emerald-900 group-hover:text-white transition-colors">
-                <Download className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-semibold text-stone-800 group-hover:text-emerald-950">
-                Downloads
-              </span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. ABOUT THE INSTITUTION */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-7 space-y-4">
-            <div className="text-xs font-semibold text-emerald-900 tracking-wider uppercase">
-              Institutional Heritage & Mission
-            </div>
-            <h2 className="font-editorial text-2xl sm:text-3xl font-bold text-stone-900">
-              About DARE ARQAM School System
-            </h2>
-            <div className="space-y-3 text-stone-700 text-sm leading-relaxed font-prose-serif">
-              <p>
-                DARE ARQAM was founded with a singular conviction: that modern scientific learning and profound ethical grounding are complementary forces in building the leadership of Pakistan. Since its establishment in 1998, the institution has expanded into a reputable nationwide educational network recognized for scholastic excellence.
-              </p>
-              <p>
-                Our curriculum aligns fully with the authorized national curriculum frameworks and provincial examination board standards, while incorporating a structured Hifz-ul-Quran and Character Formation wing. We maintain dedicated science laboratories, computerized learning libraries, and structured sports arenas to foster well-rounded young citizens.
-              </p>
-            </div>
-
-            <div className="pt-2 flex flex-wrap gap-4 text-xs font-semibold text-emerald-950">
               <button
-                onClick={() => onNavigate('about')}
-                className="px-4 py-2 border border-emerald-900/30 rounded-md hover:bg-emerald-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+                type="button"
+                onClick={() => onNavigate('results')}
+                className="px-4 py-2.5 sm:px-6 sm:py-3.5 text-xs sm:text-sm font-semibold text-[#EEF0FF] hover:text-white bg-white/10 hover:bg-white/20 border border-white/30 rounded-xl transition-all cursor-pointer active:scale-95"
               >
-                <span>Read Institutional Profile</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => onNavigate('vision-mission')}
-                className="px-4 py-2 text-stone-700 hover:text-emerald-900 transition-colors cursor-pointer"
-              >
-                Vision & Core Values
+                Verify Results
               </button>
             </div>
-          </div>
 
-          <div className="lg:col-span-5">
-            <div className="relative rounded-lg overflow-hidden border border-stone-200 shadow-sm bg-stone-100">
-              <img
-                src="/src/assets/images/campus_library_hall_1790434944628.jpg"
-                alt="DARE ARQAM Scholarly Library Hall"
-                className="w-full h-72 object-cover object-center"
-                referrerPolicy="no-referrer"
-              />
-              <div className="p-3 bg-stone-900 text-stone-200 text-xs border-t border-stone-800">
-                <span className="font-semibold text-white">Central Academic Library & Study Hall:</span> Serving over 1,200 junior and senior scholars.
-              </div>
-            </div>
+            {/* Social Media Strip (Single Row on Mobile & Desktop) */}
+            {(() => {
+              const items = [
+                {
+                  key: 'youtube',
+                  platform: 'YouTube',
+                  name: socialMedia.youtube.profileName || 'YouTube',
+                  url: socialMedia.youtube.url,
+                  enabled: socialMedia.youtube.enabled,
+                  order: socialMedia.youtube.displayOrder ?? 1,
+                  ariaLabel: 'Visit DARE ARQAM on YouTube',
+                  icon: (
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                  )
+                },
+                {
+                  key: 'facebook',
+                  platform: 'Facebook',
+                  name: socialMedia.facebook.profileName || 'Facebook',
+                  url: socialMedia.facebook.url,
+                  enabled: socialMedia.facebook.enabled,
+                  order: socialMedia.facebook.displayOrder ?? 2,
+                  ariaLabel: 'Visit DARE ARQAM on Facebook',
+                  icon: (
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                  )
+                },
+                {
+                  key: 'tiktok',
+                  platform: 'TikTok',
+                  name: socialMedia.tiktok.profileName || 'TikTok',
+                  url: socialMedia.tiktok.url,
+                  enabled: socialMedia.tiktok.enabled,
+                  order: socialMedia.tiktok.displayOrder ?? 3,
+                  ariaLabel: 'Visit DARE ARQAM on TikTok',
+                  icon: (
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-pink-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.589 6.686a4.793 4.793 0 0 1-3.77-4.245V2h-3.445v13.672a2.896 2.896 0 0 1-5.201 1.743l-.002-.001.002-.001a2.895 2.895 0 0 1 3.144-4.53v-3.47a6.342 6.342 0 0 0-5.645 5.842.634.634 0 0 0-.014.137v.005a6.344 6.344 0 0 0 10.835 4.485 6.35 6.35 0 0 0 1.848-4.485V8.808a8.196 8.196 0 0 0 4.697 1.458v-3.48a4.776 4.776 0 0 1-1.205-.1z"/>
+                    </svg>
+                  )
+                },
+                {
+                  key: 'whatsapp',
+                  platform: 'WhatsApp',
+                  name: socialMedia.whatsapp?.profileName || 'WhatsApp',
+                  url: socialMedia.whatsapp?.url || (socialMedia.whatsapp?.phoneNumber ? `https://wa.me/${socialMedia.whatsapp.phoneNumber.replace(/[^0-9]/g, '')}` : ''),
+                  enabled: socialMedia.whatsapp?.enabled ?? false,
+                  order: socialMedia.whatsapp?.displayOrder ?? 4,
+                  ariaLabel: 'Contact DARE ARQAM on WhatsApp',
+                  icon: (
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                  )
+                }
+              ].filter(item => item.enabled && item.url && item.url.trim() !== '')
+               .sort((a, b) => a.order - b.order);
+
+              if (items.length === 0) return null;
+
+              return (
+                <div className="pt-3.5 sm:pt-4 border-t border-white/20 flex flex-row flex-nowrap items-center justify-center gap-2 sm:gap-4 overflow-x-auto max-w-full">
+                  {items.map(item => (
+                    <a
+                      key={item.key}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={item.ariaLabel}
+                      title={item.name}
+                      className="px-2.5 sm:px-3.5 py-1.5 bg-[#20216B]/90 hover:bg-[#2A2C8A] border border-[#F5D900]/40 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-semibold text-[#EEF0FF] hover:text-white transition-all shadow-sm flex items-center gap-1.5 sm:gap-2 group cursor-pointer shrink-0"
+                    >
+                      {item.icon}
+                      <span className="group-hover:underline font-bold">
+                        {item.name}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </section>
 
-      {/* 5. PRINCIPAL'S MESSAGE */}
+      {/* 2. PRINCIPAL'S MESSAGE SECTION */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="bg-white border border-stone-200 rounded-lg p-6 sm:p-8">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-center">
-            {/* Principal Photo */}
-            <div className="md:col-span-4 flex flex-col items-center text-center">
-              <div className="relative w-40 h-40 sm:w-48 sm:h-48 rounded-full overflow-hidden border-4 border-emerald-900/20 shadow-md mb-3 bg-stone-100">
+        <div className="bg-gradient-to-r from-[#171852] via-[#20216B] to-[#292A86] text-white border-2 border-[#F5D900]/40 rounded-2xl p-4 sm:p-8 shadow-2xl">
+          <div className="flex flex-row gap-4 sm:gap-8 items-center">
+            {/* Principal Photo & Identity (Left) */}
+            <div className="w-32 sm:w-48 md:w-56 shrink-0 space-y-2 text-left">
+              <div className="relative w-full h-36 sm:h-52 md:h-60 rounded-xl overflow-hidden border-2 border-[#F5D900] shadow-lg bg-[#EEF0FF]">
                 <img
-                  src="/src/assets/images/principal_portrait_1790434918701.jpg"
-                  alt="Principal Prof. Dr. Abdul Rahman Qureshi"
+                  src={principalPhotoUrl || DEFAULT_PRINCIPAL_PHOTO}
+                  alt={principalName}
                   className="w-full h-full object-cover object-top"
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <div className="font-editorial text-base sm:text-lg font-bold text-stone-900">
-                {INSTITUTION_INFO.principalName}
-              </div>
-              <div className="text-xs text-emerald-900 font-medium mt-0.5">
-                Principal & Head of Institution
-              </div>
-              <div className="text-[11px] text-stone-500 mt-1 max-w-xs">
-                {INSTITUTION_INFO.principalQualification}
+              <div className="space-y-1">
+                <div className="font-editorial text-xs sm:text-sm md:text-base font-bold text-white leading-tight">
+                  {principalName}
+                </div>
+                <div>
+                  <span className="inline-block px-1.5 py-0.5 rounded bg-[#FFF000]/20 border border-[#FFF000]/40 text-[10px] sm:text-xs text-[#FFF000] font-extrabold uppercase tracking-wider">
+                    {principalTitle || 'Principal'}
+                  </span>
+                </div>
+                <div className="text-[10px] sm:text-xs text-[#FFF9B8] font-prose-serif font-medium leading-relaxed line-clamp-2">
+                  {principalQualification}
+                </div>
               </div>
             </div>
 
-            {/* Message Body */}
-            <div className="md:col-span-8 space-y-4">
-              <div className="text-xs font-semibold text-emerald-900 tracking-wider uppercase">
-                Executive Leadership
+            {/* Message Body (Right Side) */}
+            <div className="flex-1 space-y-2.5 sm:space-y-3">
+              <div className="text-[10px] sm:text-xs font-bold text-[#FFF000] tracking-wider uppercase flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#FFF000]" />
+                <span>Executive Leadership & Communique</span>
               </div>
-              <h2 className="font-editorial text-2xl font-bold text-stone-900">
+              <h2 className="font-editorial text-lg sm:text-2xl md:text-3xl font-bold text-white leading-tight">
                 Message from the Principal
               </h2>
 
-              <blockquote className="border-l-3 border-emerald-800 pl-4 text-stone-700 text-sm sm:text-base font-prose-serif italic leading-relaxed">
-                “In an age of rapid technological transition, true education is not merely the accumulation of facts, but the disciplined training of the intellect and the nurturing of a conscience anchored in timeless moral virtues. At DARE ARQAM, our educators strive tirelessly to ensure every young mind that walks through our gates emerges equipped to excel globally while holding firm to their national and spiritual roots.”
+              <blockquote className="border-l-2 sm:border-l-4 border-[#F5D900] pl-2.5 sm:pl-4 text-[#FFF9B8] text-xs sm:text-sm md:text-base font-prose-serif italic leading-relaxed bg-black/20 py-2 sm:py-2.5 px-2.5 sm:px-3 rounded-r-xl">
+                “{principalMessage || 'In an age of rapid technological transition, true education is not merely the accumulation of facts, but the disciplined training of the intellect and the nurturing of a conscience anchored in timeless moral virtues. At DAR - E - ARQAM, our educators strive tirelessly to ensure every young mind that walks through our gates emerges equipped to excel globally while holding firm to their national and spiritual roots.'}”
               </blockquote>
 
-              <p className="text-xs sm:text-sm text-stone-600 font-prose-serif leading-relaxed">
+              <p className="text-xs sm:text-sm text-[#EEF0FF] font-prose-serif leading-relaxed line-clamp-3 sm:line-clamp-none">
                 We invite parents to partner actively with our faculty in shaping the future trajectory of their children, creating an academic journey marked by curiosity, perseverance, and mutual respect.
               </p>
 
               <div>
                 <button
                   onClick={() => onNavigate('principal-message')}
-                  className="text-xs font-semibold text-emerald-900 hover:text-emerald-700 inline-flex items-center gap-1 underline underline-offset-4 cursor-pointer"
+                  className="px-3.5 sm:px-4 py-1.5 sm:py-2 bg-[#FFF000] hover:bg-[#F5D900] text-[#171852] text-[10px] sm:text-xs font-extrabold rounded-lg inline-flex items-center gap-1 shadow-md cursor-pointer transition-all active:scale-95"
                 >
-                  <span>Read Full Executive Address</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <span>Read Full Address</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#171852]" />
                 </button>
               </div>
             </div>
@@ -350,251 +293,108 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onSelectNotice }
         </div>
       </section>
 
-      {/* 6. ACADEMIC INFORMATION */}
+      {/* 4. AT DARE ARQAM, WE FOCUS ON (CORE INSTITUTIONAL FOCUS - 5 GRADIENT CARDS) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="mb-6 pb-3 border-b border-stone-200">
-          <div className="text-xs font-semibold text-emerald-900 tracking-wider uppercase mb-1">
-            Scholastic Structure
+        <div className="mb-6 pb-3 border-b-2 border-[#CBD5E1]">
+          <div className="text-xs font-extrabold text-[#20216B] tracking-wider uppercase mb-1 flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#F5D900]" />
+            <span>Institutional Priorities</span>
           </div>
-          <h2 className="font-editorial text-2xl font-bold text-stone-900">
-            Academic Information & Divisions
+          <h2 className="font-editorial text-2xl sm:text-3xl font-bold text-[#0F1035]">
+            At DARE ARQAM, We Focus On
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Junior Wing */}
-          <div className="bg-white border border-stone-200 rounded-md p-5 flex flex-col justify-between hover:border-emerald-700 transition-colors">
-            <div>
-              <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
-                Division 01
+        {/* 5 Cards Grid: 2 cards on row 1, 2 cards on row 2, 1 card centered on row 3 (consistent on mobile & laptop) */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-6">
+          {/* 1. Quality Education */}
+          <div 
+            style={{ animationDelay: '80ms' }}
+            className="animate-fade-in-up bg-gradient-to-br from-[#171852] via-[#20216B] to-[#2D3092] text-white border-2 border-[#D4AF37]/50 hover:border-[#FFF000] rounded-xl sm:rounded-2xl p-3.5 sm:p-7 shadow-md hover:shadow-xl transition-all flex flex-col justify-start group"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3.5 mb-2.5 sm:mb-3.5">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-[#FFF000]/15 text-[#FFF000] border border-[#FFF000]/40 flex items-center justify-center shrink-0 group-hover:bg-[#FFF000] group-hover:text-[#171852] transition-colors shadow-sm">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <h3 className="font-editorial text-lg font-bold text-stone-900 mb-2">
-                Junior Wing (Classes I–V)
+              <h3 className="font-editorial text-xs sm:text-base md:text-lg font-bold text-[#FFF000] uppercase tracking-wide leading-snug group-hover:text-[#FFF9B8] transition-colors">
+                Quality Education
               </h3>
-              <p className="text-xs text-stone-600 leading-relaxed font-prose-serif">
-                Foundation in literacy, numeracy, Quranic recitation (Nazra), introductory general science, social studies, and creative expression.
-              </p>
             </div>
-            <button
-              onClick={() => onNavigate('classes')}
-              className="mt-4 pt-3 border-t border-stone-100 text-xs font-semibold text-emerald-900 flex items-center justify-between hover:underline cursor-pointer"
-            >
-              <span>Explore Curriculum</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <p className="text-[11px] sm:text-sm text-white leading-relaxed font-prose-serif font-normal">
+              Providing students with a strong academic foundation and encouraging them to develop a lifelong love for learning.
+            </p>
           </div>
 
-          {/* Middle Wing */}
-          <div className="bg-white border border-stone-200 rounded-md p-5 flex flex-col justify-between hover:border-emerald-700 transition-colors">
-            <div>
-              <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
-                Division 02
+          {/* 2. Islamic & Moral Values */}
+          <div 
+            style={{ animationDelay: '160ms' }}
+            className="animate-fade-in-up bg-gradient-to-br from-[#171852] via-[#20216B] to-[#2D3092] text-white border-2 border-[#D4AF37]/50 hover:border-[#FFF000] rounded-xl sm:rounded-2xl p-3.5 sm:p-7 shadow-md hover:shadow-xl transition-all flex flex-col justify-start group"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3.5 mb-2.5 sm:mb-3.5">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-[#FFF000]/15 text-[#FFF000] border border-[#FFF000]/40 flex items-center justify-center shrink-0 group-hover:bg-[#FFF000] group-hover:text-[#171852] transition-colors shadow-sm">
+                <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <h3 className="font-editorial text-lg font-bold text-stone-900 mb-2">
-                Middle Wing (Classes VI–VIII)
+              <h3 className="font-editorial text-xs sm:text-base md:text-lg font-bold text-[#FFF000] uppercase tracking-wide leading-snug group-hover:text-[#FFF9B8] transition-colors">
+                Islamic & Moral Values
               </h3>
-              <p className="text-xs text-stone-600 leading-relaxed font-prose-serif">
-                Intensive preparation in discrete sciences (Physics, Chemistry, Biology), algebraic mathematics, computer literacy, English composition, and Urdu.
-              </p>
             </div>
-            <button
-              onClick={() => onNavigate('classes')}
-              className="mt-4 pt-3 border-t border-stone-100 text-xs font-semibold text-emerald-900 flex items-center justify-between hover:underline cursor-pointer"
-            >
-              <span>Explore Curriculum</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <p className="text-[11px] sm:text-sm text-white leading-relaxed font-prose-serif font-normal">
+              Education should build not only intelligent minds but also good human beings. We emphasize character building, honesty, respect, discipline, and Islamic values.
+            </p>
           </div>
 
-          {/* Senior / Matriculation */}
-          <div className="bg-white border border-stone-200 rounded-md p-5 flex flex-col justify-between hover:border-emerald-700 transition-colors">
-            <div>
-              <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
-                Division 03
+          {/* 3. Dedicated Teachers */}
+          <div 
+            style={{ animationDelay: '240ms' }}
+            className="animate-fade-in-up bg-gradient-to-br from-[#171852] via-[#20216B] to-[#2D3092] text-white border-2 border-[#D4AF37]/50 hover:border-[#FFF000] rounded-xl sm:rounded-2xl p-3.5 sm:p-7 shadow-md hover:shadow-xl transition-all flex flex-col justify-start group"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3.5 mb-2.5 sm:mb-3.5">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-[#FFF000]/15 text-[#FFF000] border border-[#FFF000]/40 flex items-center justify-center shrink-0 group-hover:bg-[#FFF000] group-hover:text-[#171852] transition-colors shadow-sm">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <h3 className="font-editorial text-lg font-bold text-stone-900 mb-2">
-                Matriculation (Classes IX–X)
+              <h3 className="font-editorial text-xs sm:text-base md:text-lg font-bold text-[#FFF000] uppercase tracking-wide leading-snug group-hover:text-[#FFF9B8] transition-colors">
+                Dedicated Teachers
               </h3>
-              <p className="text-xs text-stone-600 leading-relaxed font-prose-serif">
-                Affiliated with Board of Intermediate & Secondary Education. Specialized Science (Biology) and Computer Science streams with dedicated laboratory work.
-              </p>
             </div>
-            <button
-              onClick={() => onNavigate('academic-programs')}
-              className="mt-4 pt-3 border-t border-stone-100 text-xs font-semibold text-emerald-900 flex items-center justify-between hover:underline cursor-pointer"
-            >
-              <span>Board Requirements</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <p className="text-[11px] sm:text-sm text-white leading-relaxed font-prose-serif font-normal">
+              Teachers are the backbone of any educational institution. We strive to provide our students with dedicated and responsible teachers who can guide them academically and morally.
+            </p>
           </div>
 
-          {/* HSSC / College */}
-          <div className="bg-white border border-stone-200 rounded-md p-5 flex flex-col justify-between hover:border-emerald-700 transition-colors">
-            <div>
-              <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
-                Division 04
+          {/* 4. Discipline & Character Building */}
+          <div 
+            style={{ animationDelay: '320ms' }}
+            className="animate-fade-in-up bg-gradient-to-br from-[#171852] via-[#20216B] to-[#2D3092] text-white border-2 border-[#D4AF37]/50 hover:border-[#FFF000] rounded-xl sm:rounded-2xl p-3.5 sm:p-7 shadow-md hover:shadow-xl transition-all flex flex-col justify-start group"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3.5 mb-2.5 sm:mb-3.5">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-[#FFF000]/15 text-[#FFF000] border border-[#FFF000]/40 flex items-center justify-center shrink-0 group-hover:bg-[#FFF000] group-hover:text-[#171852] transition-colors shadow-sm">
+                <Target className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <h3 className="font-editorial text-lg font-bold text-stone-900 mb-2">
-                Higher Secondary (HSSC)
+              <h3 className="font-editorial text-xs sm:text-base md:text-lg font-bold text-[#FFF000] uppercase tracking-wide leading-snug group-hover:text-[#FFF9B8] transition-colors">
+                Discipline & Character Building
               </h3>
-              <p className="text-xs text-stone-600 leading-relaxed font-prose-serif">
-                Pre-Medical, Pre-Engineering, and Intermediate in Computer Science (ICS) with focus on competitive entrance test preparation (MDCAT/ECAT).
-              </p>
             </div>
-            <button
-              onClick={() => onNavigate('academic-programs')}
-              className="mt-4 pt-3 border-t border-stone-100 text-xs font-semibold text-emerald-900 flex items-center justify-between hover:underline cursor-pointer"
-            >
-              <span>Stream Details</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. LATEST NEWS & UPCOMING EVENTS (Side by Side Grid) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Latest News (7 cols) */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-              <h2 className="font-editorial text-xl font-bold text-stone-900">
-                Latest Institutional News
-              </h2>
-              <button
-                onClick={() => onNavigate('news')}
-                className="text-xs font-semibold text-emerald-900 hover:underline cursor-pointer"
-              >
-                View News Archive
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {latestNews.map((news) => (
-                <div
-                  key={news.id}
-                  className="bg-white border border-stone-200 rounded-md p-4 sm:p-5 hover:border-emerald-700 transition-colors"
-                >
-                  <div className="flex items-center gap-2 text-xs text-stone-500 mb-1.5">
-                    <span className="font-semibold text-emerald-900">{news.category}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{news.date}</span>
-                  </div>
-                  <h3 className="font-editorial text-base font-bold text-stone-900 hover:text-emerald-950">
-                    {news.title}
-                  </h3>
-                  <p className="mt-2 text-xs sm:text-sm text-stone-600 line-clamp-2 leading-relaxed font-prose-serif">
-                    {news.summary}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <p className="text-[11px] sm:text-sm text-white leading-relaxed font-prose-serif font-normal">
+              We believe that discipline is essential for success. Students are encouraged to become responsible, respectful, confident, and disciplined members of society.
+            </p>
           </div>
 
-          {/* Upcoming Events (5 cols) */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-              <h2 className="font-editorial text-xl font-bold text-stone-900">
-                Upcoming Events & Dates
-              </h2>
-              <button
-                onClick={() => onNavigate('events')}
-                className="text-xs font-semibold text-emerald-900 hover:underline cursor-pointer"
-              >
-                All Events
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {upcomingEvents.map((evt) => (
-                <div
-                  key={evt.id}
-                  className="bg-white border border-stone-200 rounded-md p-4 flex gap-3 hover:border-emerald-700 transition-colors"
-                >
-                  <div className="shrink-0 w-12 h-14 bg-emerald-900 text-white rounded-sm flex flex-col items-center justify-center text-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      {new Date(evt.date).toLocaleString('default', { month: 'short' })}
-                    </span>
-                    <span className="text-base font-bold font-mono">
-                      {new Date(evt.date).getDate()}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-[11px] font-semibold text-emerald-900">
-                      {evt.category} · {evt.time}
-                    </div>
-                    <h3 className="text-xs sm:text-sm font-bold text-stone-900 mt-0.5 leading-snug">
-                      {evt.title}
-                    </h3>
-                    <div className="text-[11px] text-stone-500 mt-1">
-                      Venue: {evt.venue}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 8. OFFICIAL CONTACT SUMMARY SECTION */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="bg-stone-100 border border-stone-200 rounded-lg p-6 sm:p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div>
-              <div className="text-xs font-semibold text-emerald-900 tracking-wider uppercase mb-1">
-                Institutional Contact & Inquiries
+          {/* 5. Parents & School Partnership (Centered on Row 3 for both mobile and laptop) */}
+          <div 
+            style={{ animationDelay: '400ms' }}
+            className="animate-fade-in-up col-span-2 w-full max-w-2xl mx-auto bg-gradient-to-r from-[#171852] via-[#20216B] to-[#2D3092] text-white border-2 border-[#D4AF37]/50 hover:border-[#FFF000] rounded-xl sm:rounded-2xl p-3.5 sm:p-7 shadow-md hover:shadow-xl transition-all flex flex-col justify-start group"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3.5 mb-2.5 sm:mb-3.5">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-[#FFF000]/15 text-[#FFF000] border border-[#FFF000]/40 flex items-center justify-center shrink-0 group-hover:bg-[#FFF000] group-hover:text-[#171852] transition-colors shadow-sm">
+                <Handshake className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <h2 className="font-editorial text-2xl font-bold text-stone-900">
-                Official Secretariat & Directorate
-              </h2>
-              <p className="mt-2 text-xs sm:text-sm text-stone-600 font-prose-serif leading-relaxed">
-                Parents, prospective scholars, and regulatory authorities are welcome to contact our central administration during authorized office working hours.
-              </p>
-
-              <div className="mt-4 space-y-2 text-xs text-stone-700">
-                <div className="flex items-start gap-2.5">
-                  <MapPin className="w-4 h-4 text-emerald-900 shrink-0 mt-0.5" />
-                  <span>{INSTITUTION_INFO.address}</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <Phone className="w-4 h-4 text-emerald-900 shrink-0" />
-                  <span>Telephone: {INSTITUTION_INFO.phone}</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <Mail className="w-4 h-4 text-emerald-900 shrink-0" />
-                  <span>Official Email: {INSTITUTION_INFO.email}</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <Clock className="w-4 h-4 text-emerald-900 shrink-0" />
-                  <span>Office Hours: {INSTITUTION_INFO.officeHours}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-stone-200 rounded-md p-5 text-center space-y-3">
-              <Emblem size="lg" className="mx-auto" />
-              <h3 className="font-editorial text-base font-bold text-stone-900">
-                Admissions for Session 2026–2027
+              <h3 className="font-editorial text-xs sm:text-base md:text-lg font-bold text-[#FFF000] uppercase tracking-wide leading-snug group-hover:text-[#FFF9B8] transition-colors">
+                Parents & School Partnership
               </h3>
-              <p className="text-xs text-stone-600 max-w-sm mx-auto">
-                Applications for entry tests and merit placements are currently being received at the Admissions Desk.
-              </p>
-              <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
-                <button
-                  onClick={() => onNavigate('apply-admission')}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-emerald-900 hover:bg-emerald-800 rounded-md transition-colors cursor-pointer"
-                >
-                  Submit Online Application
-                </button>
-                <button
-                  onClick={() => onNavigate('contact')}
-                  className="px-4 py-2 text-xs font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-md transition-colors cursor-pointer"
-                >
-                  Contact Admissions Office
-                </button>
-              </div>
             </div>
+            <p className="text-[11px] sm:text-sm text-white leading-relaxed font-prose-serif font-normal">
+              The education of a child is a shared responsibility. We value the cooperation and trust of parents and believe that strong communication between parents and teachers leads to better student development.
+            </p>
           </div>
         </div>
       </section>

@@ -23,6 +23,7 @@ export type PageId =
   | 'student-register'
   | 'admin-login'
   | 'admin-dashboard'
+  | 'super-admin-dashboard'
   | 'notices'
   | 'notice-detail'
   | 'events'

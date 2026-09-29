@@ -31,9 +31,11 @@ import { StudentPortalView } from './views/StudentPortalView';
 import { EmailVerificationScreen } from './components/EmailVerificationScreen';
 import { AdminLoginView } from './views/AdminLoginView';
 import { AdminDashboardView } from './views/AdminDashboardView';
+import { Lock } from 'lucide-react';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<PageId>('home');
+  const [studentAuthMode, setStudentAuthMode] = useState<'choice' | 'login'>('choice');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Notice Modal State
@@ -54,7 +56,209 @@ function AppContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
 
-  const handleNavigate = (page: PageId) => {
+  // Dynamic SEO & Meta Tags Injector for Search Engine Indexing (per applet-seo guidelines)
+  useEffect(() => {
+    const seoMap: Record<PageId, { title: string; description: string }> = {
+      home: {
+        title: 'DAR - E - ARQAM School Katlang Campus – Official Portal & Admissions',
+        description: 'Official website of DAR - E - ARQAM School Katlang Campus. Admissions 2026-2027, academic programs, student portal login, exam results, and circulars.',
+      },
+      about: {
+        title: 'About Institution – DAR - E - ARQAM School Katlang Campus',
+        description: 'Discover the rich heritage, vision, mission, and expert faculty of DAR - E - ARQAM School Katlang Campus.',
+      },
+      'principal-message': {
+        title: "Principal's Address – DAR - E - ARQAM School Katlang Campus",
+        description: 'Read the official address from the Principal of DAR - E - ARQAM School Katlang Campus on academic discipline and moral education.',
+      },
+      'vision-mission': {
+        title: 'Vision & Core Values – DAR - E - ARQAM School Katlang Campus',
+        description: 'Explore the founding vision, mission statement, and core moral values of DAR - E - ARQAM Educational System.',
+      },
+      administration: {
+        title: 'Administration & Directorate – DAR - E - ARQAM School Katlang Campus',
+        description: 'Meet the executive administration, campus managers, and academic coordinators of DAR - E - ARQAM Katlang Campus.',
+      },
+      faculty: {
+        title: 'Faculty & Educators – DAR - E - ARQAM School Katlang Campus',
+        description: 'Meet our qualified and dedicated faculty members across junior, middle, matriculation, and higher secondary wings.',
+      },
+      departments: {
+        title: 'Academic Departments – DAR - E - ARQAM School Katlang Campus',
+        description: 'Explore science laboratories, computer IT labs, Hifz wing, and sports departments at DAR - E - ARQAM.',
+      },
+      'academic-programs': {
+        title: 'Academic Programs & Streams – DAR - E - ARQAM School Katlang Campus',
+        description: 'Comprehensive academic programs from primary grades through Matric and HSSC Pre-Medical, Pre-Engineering, and ICS.',
+      },
+      classes: {
+        title: 'Classes & Curriculum – DAR - E - ARQAM School Katlang Campus',
+        description: 'Class-wise breakdown of curriculum, subjects, and learning milestones from Junior to Higher Secondary wings.',
+      },
+      'academic-calendar': {
+        title: 'Academic Calendar & Term Dates – DAR - E - ARQAM School Katlang Campus',
+        description: 'View term schedules, examination dates, sports weeks, and public holidays for the 2026-2027 academic year.',
+      },
+      examination: {
+        title: 'Examination Rules & Board Standards – DAR - E - ARQAM School Katlang Campus',
+        description: 'Board examination guidelines, term test policies, grading criteria, and promotion rules.',
+      },
+      syllabus: {
+        title: 'Syllabus & Study Guides – DAR - E - ARQAM School Katlang Campus',
+        description: 'Download class-wise curriculum syllabus, term outlines, and reading material.',
+      },
+      results: {
+        title: 'Examination Results & Gazette – DAR - E - ARQAM School Katlang Campus',
+        description: 'Verify student term and board examination results, term grades, and academic performance online securely.',
+      },
+      'admission-info': {
+        title: 'Admissions 2026-2027 Information – DAR - E - ARQAM School Katlang Campus',
+        description: 'Information regarding admissions for session 2026-2027, entry test dates, and seat availability.',
+      },
+      eligibility: {
+        title: 'Admission Eligibility Criteria – DAR - E - ARQAM School Katlang Campus',
+        description: 'Review age limits, previous class grade requirements, and admission test criteria for prospective students.',
+      },
+      'admission-process': {
+        title: 'Admission Process & Steps – DAR - E - ARQAM School Katlang Campus',
+        description: 'Step-by-step admission procedure from registration and entry test to merit list and enrollment.',
+      },
+      'required-documents': {
+        title: 'Required Admission Documents – DAR - E - ARQAM School Katlang Campus',
+        description: 'List of documents required for admission enrollment including B-Form, previous school leaving certificate, and passport photos.',
+      },
+      'fee-structure': {
+        title: 'Fee Structure 2026-2027 – DAR - E - ARQAM School Katlang Campus',
+        description: 'Transparent tuition fee structure, admission charges, lab fees, and scholarship concessions.',
+      },
+      'apply-admission': {
+        title: 'Apply Online for Admission – DAR - E - ARQAM School Katlang Campus',
+        description: 'Submit your online admission application form for session 2026-2027 at DAR - E - ARQAM School Katlang Campus.',
+      },
+      notices: {
+        title: 'Official Circulars & Notice Board – DAR - E - ARQAM School Katlang Campus',
+        description: 'Read official directorate circulars, exam dates, holiday notifications, and important school announcements.',
+      },
+      'notice-detail': {
+        title: 'Notice Details – DAR - E - ARQAM School Katlang Campus',
+        description: 'View full notice details, circular attachments, and instructions from the school directorate.',
+      },
+      events: {
+        title: 'Upcoming Events & Calendar – DAR - E - ARQAM School Katlang Campus',
+        description: 'Stay updated with upcoming school events, sports galas, science fairs, and parent-teacher meetings.',
+      },
+      news: {
+        title: 'Latest Institutional News – DAR - E - ARQAM School Katlang Campus',
+        description: 'Read the latest news, student achievements, campus updates, and co-curricular highlights.',
+      },
+      gallery: {
+        title: 'Campus Photo Gallery – DAR - E - ARQAM School Katlang Campus',
+        description: 'Browse campus photo gallery featuring campus buildings, science labs, library, and student activities.',
+      },
+      downloads: {
+        title: 'Downloads & Forms – DAR - E - ARQAM School Katlang Campus',
+        description: 'Download fee challans, leave application forms, syllabus outlines, and official school circular PDFs.',
+      },
+      contact: {
+        title: 'Contact Secretariat – DAR - E - ARQAM School Katlang Campus',
+        description: 'Get in touch with DAR - E - ARQAM School Katlang Campus administration, office hours, helpline phone, and campus location.',
+      },
+      'student-login': {
+        title: 'Student Portal Login – DAR - E - ARQAM School Katlang Campus',
+        description: 'Secure student portal login for students and parents to check attendance, assignments, fee status, and report cards.',
+      },
+      'student-register': {
+        title: 'Student Portal Registration – DAR - E - ARQAM School Katlang Campus',
+        description: 'Register for student portal access to track academic progress and school notifications.',
+      },
+      'student-portal': {
+        title: 'Student Portal Dashboard – DAR - E - ARQAM School Katlang Campus',
+        description: 'Access your student dashboard for attendance records, grades, fee receipts, and notices.',
+      },
+      'admin-login': {
+        title: 'Directorate Admin Login – DAR - E - ARQAM School Katlang Campus',
+        description: 'Authorized login for school administrators and directorate staff.',
+      },
+      'admin-dashboard': {
+        title: 'Directorate Admin Console – DAR - E - ARQAM School Katlang Campus',
+        description: 'Authorized executive admin dashboard for managing campus branding, notices, results, and admissions.',
+      },
+      'super-admin-dashboard': {
+        title: 'Super Admin Master Control – DAR - E - ARQAM School Katlang Campus',
+        description: 'Authorized website owner master control console for global branding, logos, and cover banners.',
+      },
+    };
+
+    const currentSeo = seoMap[currentPage] || seoMap.home;
+    document.title = currentSeo.title;
+
+    // Update meta description
+    let metaDesc = document.querySelector('meta[name="description"]');
+    if (!metaDesc) {
+      metaDesc = document.createElement('meta');
+      metaDesc.setAttribute('name', 'description');
+      document.head.appendChild(metaDesc);
+    }
+    metaDesc.setAttribute('content', currentSeo.description);
+
+    // Update OpenGraph tags
+    const ogTitle = document.querySelector('meta[property="og:title"]') || document.createElement('meta');
+    ogTitle.setAttribute('property', 'og:title');
+    ogTitle.setAttribute('content', currentSeo.title);
+    if (!ogTitle.parentNode) document.head.appendChild(ogTitle);
+
+    const ogDesc = document.querySelector('meta[property="og:description"]') || document.createElement('meta');
+    ogDesc.setAttribute('property', 'og:description');
+    ogDesc.setAttribute('content', currentSeo.description);
+    if (!ogDesc.parentNode) document.head.appendChild(ogDesc);
+
+    const ogUrl = document.querySelector('meta[property="og:url"]') || document.createElement('meta');
+    ogUrl.setAttribute('property', 'og:url');
+    ogUrl.setAttribute('content', window.location.href);
+    if (!ogUrl.parentNode) document.head.appendChild(ogUrl);
+
+    // Update Twitter Cards
+    const twTitle = document.querySelector('meta[name="twitter:title"]') || document.createElement('meta');
+    twTitle.setAttribute('name', 'twitter:title');
+    twTitle.setAttribute('content', currentSeo.title);
+    if (!twTitle.parentNode) document.head.appendChild(twTitle);
+
+    const twDesc = document.querySelector('meta[name="twitter:description"]') || document.createElement('meta');
+    twDesc.setAttribute('name', 'twitter:description');
+    twDesc.setAttribute('content', currentSeo.description);
+    if (!twDesc.parentNode) document.head.appendChild(twDesc);
+
+    // Schema.org JSON-LD
+    let ldScript = document.getElementById('schema-json-ld');
+    if (!ldScript) {
+      ldScript = document.createElement('script');
+      ldScript.id = 'schema-json-ld';
+      ldScript.setAttribute('type', 'application/ld+json');
+      document.head.appendChild(ldScript);
+    }
+    ldScript.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'School',
+      'name': 'DAR - E - ARQAM School Katlang Campus',
+      'description': currentSeo.description,
+      'url': window.location.origin,
+      'telephone': '+92-937-567890',
+      'address': {
+        '@type': 'PostalAddress',
+        'streetAddress': 'Katlang Road, Mardan',
+        'addressLocality': 'Katlang',
+        'addressRegion': 'Khyber Pakhtunkhwa',
+        'addressCountry': 'PK',
+      },
+    });
+  }, [currentPage]);
+
+  const handleNavigate = (page: PageId, authMode?: 'choice' | 'login') => {
+    if (authMode) {
+      setStudentAuthMode(authMode);
+    } else if (page === 'student-login' || page === 'student-portal') {
+      setStudentAuthMode('choice');
+    }
     setCurrentPage(page);
     // If navigating to notice board, reset individual reader unless specifically routed
     if (page === 'notices') {
@@ -179,17 +383,19 @@ function AppContent() {
           <LoginView
             onNavigate={handleNavigate}
             onLoginSuccess={() => handleNavigate('student-portal')}
+            initialMode={studentAuthMode}
           />
         );
       case 'student-register':
         return <RegisterView onNavigate={handleNavigate} />;
       case 'student-portal':
-        // Unauthenticated users are redirected to login
+        // Unauthenticated users are presented with the authentication choice screen
         if (!user) {
           return (
             <LoginView
               onNavigate={handleNavigate}
               onLoginSuccess={() => handleNavigate('student-portal')}
+              initialMode="choice"
             />
           );
         }
@@ -226,12 +432,16 @@ function AppContent() {
         return (
           <AdminLoginView
             onNavigate={handleNavigate}
-            onLoginSuccess={() => handleNavigate('admin-dashboard')}
+            onLoginSuccess={() => {
+              handleNavigate('admin-dashboard');
+            }}
           />
         );
 
       case 'admin-dashboard':
-        if (!getCurrentAdminSession()) {
+      case 'super-admin-dashboard': {
+        const session = getCurrentAdminSession();
+        if (!session) {
           return (
             <AdminLoginView
               onNavigate={handleNavigate}
@@ -245,6 +455,7 @@ function AppContent() {
             onLogout={() => handleNavigate('home')}
           />
         );
+      }
 
       default:
         return (
@@ -275,7 +486,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 selection:bg-emerald-900 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-[#EEF2F8] text-[#0F1035] selection:bg-[#20216B] selection:text-[#FFF000]">
       {/* 1. Official Header */}
       <Header
         currentPage={currentPage}

@@ -1,5 +1,5 @@
 {
-  "name": "DARE ARQAM - Official Educational Institution Portal",
+  "name": "DARE ARQAM - School KATLANG Campus",
   "description": "Official institutional portal of DARE ARQAM School, featuring admissions, academics, circulars, student portal, and examination results.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

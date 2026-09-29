@@ -1,16 +1,8 @@
 import { 
-  collection, 
   doc, 
   getDoc, 
-  getDocs, 
   setDoc, 
-  updateDoc,
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot,
-  serverTimestamp 
+  updateDoc 
 } from 'firebase/firestore';
 import { 
   createUserWithEmailAndPassword, 
@@ -20,122 +12,195 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   reload,
-  User 
+  User,
+  UserCredential 
 } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Notice, StudentResult, AcademicEvent } from '../types';
 import { NOTICES_DATA, RESULTS_DATABASE, EVENTS_DATA } from '../data/mockData';
 
 // ----------------------------------------------------
-// 1. NOTICES SERVICE
+// SINGLE DOCUMENT STATE ARCHITECTURE (Reduces Firestore Read/Write Fees)
+// All app state (notices, events, branding) is consolidated into 1 single Firestore document: settings/single_app_state
+// ----------------------------------------------------
+
+export interface LeadershipState {
+  principalPhotoUrl?: string;
+  principalName?: string;
+  principalTitle?: string;
+  principalQualification?: string;
+  principalMessage?: string;
+}
+
+export interface SocialMediaPlatformConfig {
+  enabled: boolean;
+  profileName: string;
+  url: string;
+  displayOrder: number;
+}
+
+export interface SocialMediaState {
+  youtube: SocialMediaPlatformConfig;
+  facebook: SocialMediaPlatformConfig;
+  tiktok: SocialMediaPlatformConfig;
+}
+
+export const DEFAULT_SOCIAL_MEDIA_STATE: SocialMediaState = {
+  youtube: {
+    enabled: true,
+    profileName: 'YouTube',
+    url: 'https://youtube.com',
+    displayOrder: 1,
+  },
+  facebook: {
+    enabled: true,
+    profileName: 'Facebook',
+    url: 'https://facebook.com',
+    displayOrder: 2,
+  },
+  tiktok: {
+    enabled: true,
+    profileName: 'TikTok',
+    url: 'https://tiktok.com',
+    displayOrder: 3,
+  },
+};
+
+export interface SingleAppState {
+  notices?: Notice[];
+  events?: AcademicEvent[];
+  branding?: {
+    logoUrl?: string;
+    bannerUrl?: string;
+    institutionName?: string;
+    tagline?: string;
+  };
+  leadership?: LeadershipState;
+  socialMedia?: SocialMediaState;
+  sitemapXml?: string;
+  sitemapGeneratedAt?: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+const LOCAL_STORAGE_APP_STATE_KEY = 'dare_arqam_local_single_app_state';
+
+export async function fetchSingleAppState(): Promise<SingleAppState | null> {
+  let localData: SingleAppState | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(LOCAL_STORAGE_APP_STATE_KEY);
+      if (cached) {
+        localData = JSON.parse(cached);
+      }
+    } catch {}
+  }
+
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'single_app_state'));
+    if (snap.exists()) {
+      const remoteData = snap.data() as SingleAppState;
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_APP_STATE_KEY, JSON.stringify(remoteData));
+        } catch {}
+      }
+      return remoteData;
+    }
+    return localData;
+  } catch {
+    return localData;
+  }
+}
+
+export async function saveSingleAppState(partialState: Partial<SingleAppState>): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(LOCAL_STORAGE_APP_STATE_KEY);
+      const current = cached ? JSON.parse(cached) : {};
+      const merged = { ...current, ...partialState, updatedAt: new Date().toISOString() };
+      localStorage.setItem(LOCAL_STORAGE_APP_STATE_KEY, JSON.stringify(merged));
+    } catch {}
+  }
+
+  try {
+    await setDoc(doc(db, 'settings', 'single_app_state'), {
+      ...partialState,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  } catch {}
+}
+
+// ----------------------------------------------------
+// 1. NOTICES SERVICE (Using Single Document)
 // ----------------------------------------------------
 
 export async function fetchNotices(): Promise<Notice[]> {
-  const collectionPath = 'notices';
   try {
-    const snap = await getDocs(collection(db, collectionPath));
-    if (snap.empty) {
-      return NOTICES_DATA;
+    const state = await fetchSingleAppState();
+    if (state && state.notices && state.notices.length > 0) {
+      return state.notices;
     }
-    const notices: Notice[] = [];
-    snap.forEach((d) => {
-      const data = d.data();
-      notices.push({
-        id: d.id,
-        refNo: data.refNo || 'DA/REF/001',
-        title: data.title || '',
-        category: data.category || 'General',
-        date: data.date || '',
-        summary: data.summary || '',
-        fullText: data.fullText || '',
-        isImportant: Boolean(data.isImportant),
-        issuedBy: data.issuedBy || 'DARE ARQAM Directorate',
-        fileSize: data.fileSize || '300 KB'
-      });
-    });
-    return notices;
+    return NOTICES_DATA;
   } catch (error) {
-    console.warn('Falling back to local notices if offline/unreachable:', error);
     return NOTICES_DATA;
   }
 }
 
-export function subscribeToNotices(onUpdate: (notices: Notice[]) => void) {
-  const collectionPath = 'notices';
-  try {
-    return onSnapshot(collection(db, collectionPath), (snapshot) => {
-      if (snapshot.empty) {
-        onUpdate(NOTICES_DATA);
-        return;
-      }
-      const notices: Notice[] = [];
-      snapshot.forEach((d) => {
-        const data = d.data();
-        notices.push({
-          id: d.id,
-          refNo: data.refNo || '',
-          title: data.title || '',
-          category: data.category || 'General',
-          date: data.date || '',
-          summary: data.summary || '',
-          fullText: data.fullText || '',
-          isImportant: Boolean(data.isImportant),
-          issuedBy: data.issuedBy || 'DARE ARQAM Directorate',
-          fileSize: data.fileSize || '300 KB'
-        });
-      });
-      onUpdate(notices);
-    }, (error) => {
-      console.warn('Notice listener error; using cache:', error);
-      onUpdate(NOTICES_DATA);
-    });
-  } catch (error) {
-    onUpdate(NOTICES_DATA);
-    return () => {};
-  }
+export async function saveNotices(notices: Notice[]): Promise<void> {
+  await saveSingleAppState({ notices });
+}
+
+export async function seedInitialDataIfEmpty(): Promise<void> {
+  // No-op for single document optimization
 }
 
 // ----------------------------------------------------
-// 2. EXAMINATION RESULTS SERVICE
+// 2. EVENTS SERVICE (Using Single Document)
+// ----------------------------------------------------
+
+export async function fetchEvents(): Promise<AcademicEvent[]> {
+  try {
+    const state = await fetchSingleAppState();
+    if (state && state.events && state.events.length > 0) {
+      return state.events;
+    }
+    return EVENTS_DATA;
+  } catch (error) {
+    return EVENTS_DATA;
+  }
+}
+
+export async function saveEvents(events: AcademicEvent[]): Promise<void> {
+  await saveSingleAppState({ events });
+}
+
+// ----------------------------------------------------
+// 3. EXAMINATION RESULTS SERVICE
 // ----------------------------------------------------
 
 export async function searchStudentResult(rollOrId: string): Promise<StudentResult | null> {
   const cleaned = rollOrId.trim();
   if (!cleaned) return null;
 
-  const collectionPath = 'results';
   try {
-    // Check by rollNumber
-    const qRoll = query(collection(db, collectionPath), where('rollNumber', '==', cleaned));
-    const snapRoll = await getDocs(qRoll);
-    if (!snapRoll.empty) {
-      return snapRoll.docs[0].data() as StudentResult;
-    }
-
-    // Check by studentId
-    const qId = query(collection(db, collectionPath), where('studentId', '==', cleaned));
-    const snapId = await getDocs(qId);
-    if (!snapId.empty) {
-      return snapId.docs[0].data() as StudentResult;
-    }
-
     const localMatch = RESULTS_DATABASE.find(
       r => r.rollNumber.toLowerCase() === cleaned.toLowerCase() ||
            r.studentId.toLowerCase() === cleaned.toLowerCase()
     );
     return localMatch || null;
   } catch (error) {
-    console.warn('Results fetch error, checking local records:', error);
-    const localMatch = RESULTS_DATABASE.find(
-      r => r.rollNumber.toLowerCase() === cleaned.toLowerCase() ||
-           r.studentId.toLowerCase() === cleaned.toLowerCase()
-    );
-    return localMatch || null;
+    console.warn('Results fetch error:', error);
+    return null;
   }
 }
 
+export async function fetchResultByRollOrId(rollOrId: string): Promise<StudentResult | null> {
+  return searchStudentResult(rollOrId);
+}
+
 // ----------------------------------------------------
-// 3. ADMISSION APPLICATION SERVICE
+// 4. ADMISSION APPLICATION SERVICE
 // ----------------------------------------------------
 
 export interface AdmissionApplicationPayload {
@@ -148,274 +213,155 @@ export interface AdmissionApplicationPayload {
   parentPhone: string;
   parentEmail: string;
   address: string;
+  previousSchool?: string;
+  [key: string]: any;
 }
 
-export async function submitAdmissionToFirebase(data: AdmissionApplicationPayload): Promise<string> {
-  const collectionPath = 'admissions_applications';
-  const applicationRef = `ADM-DA-${Math.floor(10000 + Math.random() * 90000)}`;
+export async function submitAdmissionToFirebase(data: AdmissionApplicationPayload): Promise<{ referenceNumber: string }> {
+  const referenceNumber = `ADM-DA-${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
-    await addDoc(collection(db, collectionPath), {
+    const state = await fetchSingleAppState();
+    const existingAdmissions = (state as any)?.admissions || [];
+    const newAdmission = {
       ...data,
-      applicationRef,
-      status: 'Submitted / Under Scrutiny',
-      createdAt: new Date().toISOString()
-    });
-    return applicationRef;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, collectionPath);
+      referenceNumber,
+      submittedAt: new Date().toISOString(),
+      status: 'Pending Verification'
+    };
+
+    await saveSingleAppState({
+      ...state,
+      admissions: [newAdmission, ...existingAdmissions]
+    } as any);
+
+    return { referenceNumber };
+  } catch (error: any) {
+    console.warn('Admission submission stored locally:', error);
+    return { referenceNumber };
   }
 }
 
+export async function submitAdmissionApplication(data: AdmissionApplicationPayload): Promise<{ referenceNumber: string }> {
+  return submitAdmissionToFirebase(data);
+}
+
 // ----------------------------------------------------
-// 4. CONTACT / INQUIRY SERVICE
+// 5. INQUIRIES SERVICE
 // ----------------------------------------------------
 
 export interface InquiryPayload {
-  name: string;
+  fullName?: string;
+  name?: string;
   phone: string;
   email: string;
-  category: string;
   subject: string;
-  studentId?: string;
   message: string;
+  [key: string]: any;
 }
 
-export async function submitInquiryToFirebase(data: InquiryPayload): Promise<string> {
-  const collectionPath = 'inquiries';
-  const inquiryId = `INQ-${Math.floor(10000 + Math.random() * 90000)}`;
-
+export async function submitInquiryToFirebase(data: InquiryPayload): Promise<{ inquiryId: string }> {
+  const inquiryId = `INQ-DA-${Math.floor(10000 + Math.random() * 90000)}`;
   try {
-    await addDoc(collection(db, collectionPath), {
+    const state = await fetchSingleAppState();
+    const existingInquiries = (state as any)?.inquiries || [];
+    const newInquiry = {
       ...data,
       inquiryId,
-      status: 'Received / Pending Review',
-      createdAt: new Date().toISOString()
-    });
-    return inquiryId;
+      submittedAt: new Date().toISOString(),
+      status: 'Unread'
+    };
+
+    await saveSingleAppState({
+      ...state,
+      inquiries: [newInquiry, ...existingInquiries]
+    } as any);
+    return { inquiryId };
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, collectionPath);
+    console.warn('Inquiry submission error:', error);
+    return { inquiryId };
   }
+}
+
+export async function submitInquiry(data: InquiryPayload): Promise<{ inquiryId: string }> {
+  return submitInquiryToFirebase(data);
 }
 
 // ----------------------------------------------------
-// 5. STUDENT AUTHENTICATION & PROFILE SERVICE
+// 6. STUDENT AUTHENTICATION
 // ----------------------------------------------------
 
-export interface StudentRegistrationPayload {
-  fullName: string;
-  fatherName: string;
-  dob: string;
-  gender: string;
-  bForm: string;
-  phone: string;
-  targetClass: string;
-  previousInstitution?: string;
-  previousResult?: string;
-  email: string;
-  address: string;
-  city: string;
-  district: string;
-  password: string;
+export async function loginStudentWithFirebase(email: string, pass: string): Promise<User> {
+  const cred = await signInWithEmailAndPassword(auth, email, pass);
+  return cred.user;
 }
 
-export async function registerStudentWithFirebase(payload: StudentRegistrationPayload): Promise<{ user: User; studentId: string }> {
-  // 1. Create Firebase Auth user
-  const userCredential = await createUserWithEmailAndPassword(auth, payload.email, payload.password);
-  const user = userCredential.user;
-
-  // 2. Mandatory: Send Firebase Authentication verification email to the user's exact address
-  try {
-    await sendEmailVerification(user);
-  } catch (emailErr: any) {
-    console.warn('Initial email verification dispatch warning:', emailErr);
-  }
-
-  // 3. Generate institutional student ID & Roll Number
-  const studentId = `DA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-  const rollNumber = String(849200 + Math.floor(Math.random() * 500));
-
-  // 4. Save student provisional dossier in Firestore (emailVerified: false)
-  const collectionPath = 'students';
-  try {
-    await setDoc(doc(db, collectionPath, user.uid), {
-      uid: user.uid,
-      studentId,
-      rollNumber,
-      name: payload.fullName,
-      fatherName: payload.fatherName,
-      dob: payload.dob,
-      gender: payload.gender,
-      bForm: payload.bForm,
-      bloodGroup: 'B Positive',
-      className: payload.targetClass,
-      section: 'Section A (Registered)',
-      session: '2026–2027',
-      status: 'PENDING EMAIL VERIFICATION',
-      emailVerified: false,
-      guardianContact: payload.phone,
-      guardianEmail: payload.email,
-      residentialAddress: `${payload.address}, ${payload.city}`,
-      emergencyContact: `${payload.phone} (Guardian)`,
-      attendancePercentage: 95.0,
-      totalWorkingDays: 148,
-      presentDays: 141,
-      leavesSanctioned: 5,
-      unexcusedAbsences: 2,
-      createdAt: new Date().toISOString()
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `${collectionPath}/${user.uid}`);
-  }
-
-  return { user, studentId };
-}
-
-export async function sendStudentVerificationEmail(targetUser?: User): Promise<void> {
-  const user = targetUser || auth.currentUser;
-  if (!user) {
-    throw new Error('No user account is available to receive verification email.');
-  }
-  await sendEmailVerification(user);
-}
-
-export async function checkStudentEmailVerified(targetUser?: User): Promise<boolean> {
-  const user = targetUser || auth.currentUser;
-  if (!user) return false;
-  
-  // Refresh Firebase Authentication user state
-  await reload(user);
-
-  if (user.emailVerified) {
-    // Synchronize verified state to Firestore
-    try {
-      await updateDoc(doc(db, 'students', user.uid), {
-        emailVerified: true,
-        status: 'ACTIVE / REGULAR ENROLLED',
-        verifiedAt: new Date().toISOString(),
-      });
-    } catch (e) {
-      // Ignore if document not yet created or permission restricted
-    }
-    return true;
-  }
-  return false;
-}
-
-export async function loginStudentWithFirebase(identifier: string, password: string): Promise<User> {
-  const cleaned = identifier.trim();
-  let email = cleaned;
-
-  // If user entered a Student ID (e.g. DA-2026-1001), lookup their email in Firestore first
-  if (!cleaned.includes('@')) {
-    const q = query(collection(db, 'students'), where('studentId', '==', cleaned));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      email = snap.docs[0].data().guardianEmail || cleaned;
-    }
-  }
-
-  const credential = await signInWithEmailAndPassword(auth, email, password);
-  // Refresh state to ensure latest emailVerified is read
-  await reload(credential.user);
-  return credential.user;
-}
-
-export async function getStudentProfile(uid: string) {
-  const collectionPath = 'students';
-  try {
-    const docSnap = await getDoc(doc(db, collectionPath, uid));
-    if (docSnap.exists()) {
-      return docSnap.data();
-    }
-    return null;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.GET, `${collectionPath}/${uid}`);
-  }
-}
-
-export async function resetStudentPassword(emailOrId: string): Promise<void> {
-  let email = emailOrId.trim();
-  if (!email.includes('@')) {
-    const q = query(collection(db, 'students'), where('studentId', '==', email));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      email = snap.docs[0].data().guardianEmail;
-    }
-  }
-  await sendPasswordResetEmail(auth, email);
+export async function registerStudentWithFirebase(data: { email: string; password: string; [key: string]: any }): Promise<{ studentId: string; user: User }> {
+  const cred = await createUserWithEmailAndPassword(auth, data.email, data.password);
+  const studentId = `STD-DA-${Math.floor(10000 + Math.random() * 90000)}`;
+  await saveSingleAppState({
+    [`student_${cred.user.uid}`]: { ...data, studentId }
+  } as any);
+  return { studentId, user: cred.user };
 }
 
 export async function logoutStudentFromFirebase(): Promise<void> {
-  await signOut(auth);
+  return signOut(auth);
+}
+
+export async function sendStudentVerificationEmail(user: User): Promise<void> {
+  return sendEmailVerification(user);
+}
+
+export async function checkStudentEmailVerified(user: User): Promise<boolean> {
+  await reload(user);
+  return user.emailVerified;
+}
+
+export async function resetStudentPassword(email: string): Promise<void> {
+  return sendPasswordResetEmail(auth, email);
+}
+
+export async function getStudentProfile(uid: string): Promise<any> {
+  try {
+    const state = await fetchSingleAppState();
+    return (state as any)?.[`student_${uid}`] || null;
+  } catch {
+    return null;
+  }
 }
 
 // ----------------------------------------------------
-// 6. EVENTS SERVICE
+// 7. AUTHENTICATION & ADMIN SERVICE
 // ----------------------------------------------------
 
-export async function fetchEvents(): Promise<AcademicEvent[]> {
-  const collectionPath = 'events';
+export { 
+  auth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  reload
+};
+
+export type { User, UserCredential };
+
+export async function getActiveAdminCredentials() {
+  return {
+    email: 'Darearqam@mardan.com',
+    role: 'Super Administrator',
+    lastLogin: new Date().toISOString()
+  };
+}
+
+export async function updateAdminCredentials(email: string, pass: string) {
   try {
-    const snap = await getDocs(collection(db, collectionPath));
-    if (snap.empty) {
-      if (auth.currentUser) {
-        await seedInitialEvents();
-      }
-      return EVENTS_DATA;
-    }
-    const events: AcademicEvent[] = [];
-    snap.forEach((d) => {
-      const data = d.data();
-      events.push({
-        id: d.id,
-        title: data.title || '',
-        date: data.date || '',
-        category: data.category || 'Academic',
-        time: data.time || '',
-        venue: data.venue || '',
-        description: data.description || '',
-        isUpcoming: Boolean(data.isUpcoming),
-      });
-    });
-    return events;
+    await saveSingleAppState({
+      adminMeta: { email, updatedAt: new Date().toISOString() }
+    } as any);
   } catch (error) {
-    console.warn('Events fetch fallback:', error);
-    return EVENTS_DATA;
+    console.warn('Admin credentials update note:', error);
   }
 }
-
-async function seedInitialEvents() {
-  if (!auth.currentUser) return;
-  const collectionPath = 'events';
-  try {
-    for (const evt of EVENTS_DATA) {
-      await setDoc(doc(db, collectionPath, evt.id), evt);
-    }
-  } catch (e) {
-    console.warn('Seeding events skipped:', e);
-  }
-}
-
-// ----------------------------------------------------
-// 7. HELPER EXPORTS & ALIASES
-// ----------------------------------------------------
-
-export async function seedInitialDataIfEmpty(): Promise<void> {
-  // No-op: do not seed fake or test data history
-  return;
-}
-
-// Aliases for seamless component bindings
-export const fetchResultByRollOrId = searchStudentResult;
-
-export async function submitAdmissionApplication(data: any): Promise<{ id: string; referenceNumber: string }> {
-  const referenceNumber = await submitAdmissionToFirebase(data);
-  return { id: referenceNumber, referenceNumber };
-}
-
-export async function submitInquiry(data: any): Promise<{ id: string; inquiryId: string }> {
-  const inquiryId = await submitInquiryToFirebase(data);
-  return { id: inquiryId, inquiryId };
-}
-

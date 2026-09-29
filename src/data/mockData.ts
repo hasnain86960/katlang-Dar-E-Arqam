@@ -1,9 +1,9 @@
 import { Notice, AcademicEvent, NewsItem, StudentResult, DocumentDownload, FacultyMember } from '../types';
 
 export const INSTITUTION_INFO = {
-  name: 'DARE ARQAM',
-  fullName: 'DARE ARQAM SCHOOL SYSTEM',
-  tagline: 'Official Educational Institution Portal',
+  name: 'DAR - E - ARQAM',
+  fullName: 'DAR - E - ARQAM SCHOOL SYSTEM',
+  tagline: 'School Katlang Campus',
   establishedYear: '1998',
   registrationNo: 'REG/EDU-PK/1998/4402',
   affiliation: 'Board of Intermediate and Secondary Education (BISE) Recognized',
@@ -35,7 +35,7 @@ Date: 24th March, 2026
 
 SUBJECT: COMMENCEMENT OF ADMISSION CYCLE 2026–2027
 
-It is hereby notified for the information of all prospective students, parents, and guardians that the admission schedule for the Academic Session 2026–2027 has commenced across all wings of DARE ARQAM:
+It is hereby notified for the information of all prospective students, parents, and guardians that the admission schedule for the Academic Session 2026–2027 has commenced across all wings of DAR - E - ARQAM:
 
 1. Junior Wing (Pre-School, Classes I to V)
 2. Middle Wing (Classes VI to VIII)
@@ -61,7 +61,7 @@ Note: Incomplete applications or those submitted without verified NADRA document
 
 Sd/-
 Registrar / Admissions Directorate
-DARE ARQAM School System`
+DAR - E - ARQAM School System`
   },
   {
     id: 'not-02',
@@ -79,7 +79,7 @@ Date: 18th March, 2026
 
 SUBJECT: MID-TERM EXAMINATION TIMETABLE NOTIFICATION
 
-The Controller of Examinations, DARE ARQAM, announces the date sheet for the Mid-Term Evaluation Examinations 2026.
+The Controller of Examinations, DAR - E - ARQAM, announces the date sheet for the Mid-Term Evaluation Examinations 2026.
 
 1. Examination commencement: Monday, 06th April, 2026.
 2. Reporting time: 08:00 AM sharp. No student will be admitted to examination halls 15 minutes past commencement.
@@ -88,7 +88,7 @@ The Controller of Examinations, DARE ARQAM, announces the date sheet for the Mid
 
 Sd/-
 Controller of Examinations
-DARE ARQAM`
+DAR - E - ARQAM`
   },
   {
     id: 'not-03',
@@ -298,11 +298,11 @@ export const EVENTS_DATA: AcademicEvent[] = [
 export const NEWS_DATA: NewsItem[] = [
   {
     id: 'news-01',
-    title: 'DARE ARQAM Students Secure Top Positions in Federal Board Pre-Board Examinations',
+    title: 'DAR - E - ARQAM Students Secure Top Positions in Federal Board Pre-Board Examinations',
     date: '2026-03-20',
     category: 'Academic Achievement',
     summary: 'Institution candidates recorded a 98.4% overall pass rate with high percentages across both Science and Computer Science groups.',
-    content: 'The academic faculty of DARE ARQAM is pleased to report verifiable excellence in the recent regional evaluation. A total of 142 candidates appeared in the Matriculation preliminary examinations, securing 112 Grade A1s and 26 Grade As with zero failures.'
+    content: 'The academic faculty of DAR - E - ARQAM is pleased to report verifiable excellence in the recent regional evaluation. A total of 142 candidates appeared in the Matriculation preliminary examinations, securing 112 Grade A1s and 26 Grade As with zero failures.'
   },
   {
     id: 'news-02',

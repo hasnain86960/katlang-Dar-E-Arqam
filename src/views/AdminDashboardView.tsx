@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { PageId, Notice, StudentResult } from '../types';
 import { Emblem } from '../components/Emblem';
-import { useBranding } from '../context/BrandingContext';
+import { 
+  useBranding, 
+  DEFAULT_CAMPUS_BANNER, 
+  DEFAULT_PRINCIPAL_PHOTO,
+  SocialMediaState
+} from '../context/BrandingContext';
+import { generateAndSaveSitemapXml } from '../services/sitemapGenerator';
 import { 
   ShieldCheck, 
   LogOut, 
@@ -29,8 +35,17 @@ import {
   ExternalLink,
   Eye,
   Crop,
-  Sliders
+  Sliders,
+  Download,
+  Code,
+  UserCheck,
+  Camera,
+  User,
+  Menu,
+  LayoutDashboard
 } from 'lucide-react';
+import { AdminHeader } from '../components/admin/AdminHeader';
+import { AdminNavigationDrawer, AdminSectionKey } from '../components/admin/AdminNavigationDrawer';
 import { 
   getCurrentAdminSession, 
   logoutAdminSession, 
@@ -59,45 +74,139 @@ interface AdminDashboardViewProps {
   onLogout: () => void;
 }
 
-type AdminTab = 'branding' | 'notices' | 'results' | 'admissions' | 'inquiries' | 'security';
+type AdminTab = 'overview' | 'branding' | 'leadership' | 'social' | 'notices' | 'results' | 'admissions' | 'inquiries' | 'security';
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNavigate, onLogout }) => {
-  const { logoUrl, updateLogo, resetLogo, institutionName, tagline, updateBrandingDetails } = useBranding();
+  const { 
+    logoUrl, 
+    bannerUrl, 
+    updateLogo, 
+    resetLogo, 
+    updateBanner, 
+    resetBanner, 
+    institutionName, 
+    tagline, 
+    updateBrandingDetails,
+    principalPhotoUrl,
+    principalName,
+    principalTitle,
+    principalQualification,
+    principalMessage,
+    updatePrincipalPhoto,
+    resetPrincipalPhoto,
+    updatePrincipalDetails,
+    socialMedia,
+    updateSocialMedia,
+  } = useBranding();
   
   const [currentTab, setCurrentTab] = useState<AdminTab>('branding');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [adminUser, setAdminUser] = useState(() => getCurrentAdminSession());
+
+  const getSectionTitle = (tab: AdminTab): string => {
+    switch (tab) {
+      case 'branding':
+        return 'Custom Logo & Branding';
+      case 'leadership':
+        return 'Principal Custom Photo & Message';
+      case 'social':
+        return 'Social Media Management';
+      case 'notices':
+        return 'Notices & Circulars';
+      case 'results':
+        return 'Examination Results';
+      case 'admissions':
+        return 'Admissions Applications';
+      case 'inquiries':
+        return 'Public Inquiries & Messages';
+      case 'security':
+        return 'Security & Password';
+      case 'overview':
+      default:
+        return 'Directorate Command Center';
+    }
+  };
+
+  const handleSelectSection = (section: AdminSectionKey) => {
+    if (section === 'dashboard') {
+      setCurrentTab('overview');
+    } else if (
+      section === 'branding' || 
+      section === 'leadership' || 
+      section === 'social' || 
+      section === 'notices' || 
+      section === 'results' || 
+      section === 'admissions' || 
+      section === 'security'
+    ) {
+      setCurrentTab(section);
+    } else if (section === 'admissions-pending' || section === 'admissions-approved' || section === 'admissions-rejected') {
+      setCurrentTab('admissions');
+    } else if (section === 'contact-info') {
+      setCurrentTab('inquiries');
+    } else if (section === 'students' || section === 'student-profiles' || section === 'attendance' || section === 'academic-records') {
+      setCurrentTab('results');
+    } else if (section === 'news' || section === 'events' || section === 'gallery' || section === 'downloads' || section === 'academic-info' || section === 'about-info') {
+      setCurrentTab('notices');
+    } else if (section === 'social-youtube' || section === 'social-facebook' || section === 'social-tiktok' || section === 'social-whatsapp') {
+      setCurrentTab('social');
+    } else if (section === 'admin-profile' || section === 'settings' || section === 'audit-log') {
+      setCurrentTab('security');
+    } else {
+      setCurrentTab('overview');
+    }
+    setIsDrawerOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Global notification banner in admin console
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // ----------------------------------------------------
-  // Tab 1: Logo & Branding State
+  // Tab 1: Logo, Banner & Branding State
   // ----------------------------------------------------
   const [tempLogoUrl, setTempLogoUrl] = useState<string>(logoUrl || '');
+  const [tempBannerUrl, setTempBannerUrl] = useState<string>(bannerUrl || '');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [tempInstName, setTempInstName] = useState(institutionName);
   const [tempTagline, setTempTagline] = useState(tagline);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [customizerImageSrc, setCustomizerImageSrc] = useState<string>('');
 
-  // Preset logo options for quick institutional selection
-  const PRESET_LOGOS = [
-    {
-      name: 'Dare Arqam Gold Seal',
-      desc: 'High-res golden institutional round crest',
-      url: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=300&q=85',
-    },
-    {
-      name: 'Islamic Classical Emblem',
-      desc: 'Deep emerald & calligraphy monogram',
-      url: 'https://images.unsplash.com/photo-1584824486509-112e4181ff6b?auto=format&fit=crop&w=300&q=85',
-    },
-    {
-      name: 'Modern Academic Insignia',
-      desc: 'Geometric laurel & open book medallion',
-      url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=300&q=85',
-    }
-  ];
+  // ----------------------------------------------------
+  // Tab: Principal Leadership State
+  // ----------------------------------------------------
+  const [tempPrincipalPhoto, setTempPrincipalPhoto] = useState<string>(principalPhotoUrl || '');
+  const [tempPrincipalName, setTempPrincipalName] = useState<string>(principalName);
+  const [tempPrincipalTitle, setTempPrincipalTitle] = useState<string>(principalTitle);
+  const [tempPrincipalQual, setTempPrincipalQual] = useState<string>(principalQualification);
+  const [tempPrincipalMsg, setTempPrincipalMsg] = useState<string>(principalMessage);
+  const [isUploadingPrincipalPhoto, setIsUploadingPrincipalPhoto] = useState(false);
+
+  // ----------------------------------------------------
+  // Tab: Social Media Management State
+  // ----------------------------------------------------
+  const [tempSocialMedia, setTempSocialMedia] = useState<SocialMediaState>(socialMedia);
+
+  useEffect(() => {
+    setTempSocialMedia(socialMedia);
+  }, [socialMedia]);
+
+  // Keep local leadership state in sync with context
+  useEffect(() => {
+    setTempPrincipalPhoto(principalPhotoUrl || '');
+    setTempPrincipalName(principalName);
+    setTempPrincipalTitle(principalTitle);
+    setTempPrincipalQual(principalQualification);
+    setTempPrincipalMsg(principalMessage);
+  }, [
+    principalPhotoUrl,
+    principalName,
+    principalTitle,
+    principalQualification,
+    principalMessage
+  ]);
 
   // ----------------------------------------------------
   // Tab 2: Notices Management State
@@ -163,10 +272,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
   const [activeAdminEmail, setActiveAdminEmail] = useState('Darearqam@mardan.com');
   const [isChangingPass, setIsChangingPass] = useState(false);
 
-  // Sync tempLogoUrl if logoUrl changes from context
+  // Sync tempLogoUrl and tempBannerUrl if they change from context
   useEffect(() => {
     setTempLogoUrl(logoUrl || '');
   }, [logoUrl]);
+
+  useEffect(() => {
+    setTempBannerUrl(bannerUrl || '');
+  }, [bannerUrl]);
 
   // Load active admin credentials on mount
   useEffect(() => {
@@ -277,6 +390,170 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
     await resetLogo();
     setTempLogoUrl('');
     showNotification('info', 'Institutional logo restored to default vector emblem.');
+  };
+
+  // ----------------------------------------------------
+  // Hero Cover Banner Upload & Management
+  // ----------------------------------------------------
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', 'Please upload a valid image file (PNG, JPG, WEBP).');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      showNotification('error', 'Banner file size exceeds 15MB limit. Please upload an image under 15MB.');
+      return;
+    }
+
+    setIsUploadingBanner(true);
+    showNotification('info', 'Uploading custom hero banner to Cloudinary media storage...');
+
+    try {
+      const uploadRes = await uploadToCloudinary(file);
+      if (uploadRes.success && uploadRes.url) {
+        await updateBanner(uploadRes.url);
+        setTempBannerUrl(uploadRes.url);
+        showNotification('success', 'Custom hero banner uploaded and published website-wide successfully!');
+      } else {
+        throw new Error(uploadRes.error || 'Failed to upload banner to Cloudinary.');
+      }
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to upload hero banner to Cloudinary.');
+    } finally {
+      setIsUploadingBanner(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleApplyBanner = async () => {
+    if (!tempBannerUrl.trim()) {
+      showNotification('error', 'Please upload or specify a banner image URL first.');
+      return;
+    }
+    setIsUploadingBanner(true);
+    try {
+      await updateBanner(tempBannerUrl.trim());
+      showNotification('success', 'Custom hero banner updated and published website-wide!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to update hero banner.');
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
+
+  const handleResetBanner = async () => {
+    await resetBanner();
+    setTempBannerUrl('');
+    showNotification('info', 'Hero banner reset to institutional default campus image.');
+  };
+
+  const [sitemapXmlContent, setSitemapXmlContent] = useState<string>('');
+  const [isGeneratingSitemap, setIsGeneratingSitemap] = useState(false);
+
+  const handleGenerateSitemap = async () => {
+    setIsGeneratingSitemap(true);
+    showNotification('info', 'Generating automated XML sitemap tracking all portal pages...');
+    try {
+      const xml = await generateAndSaveSitemapXml();
+      setSitemapXmlContent(xml);
+      showNotification('success', 'sitemap.xml successfully generated and stored in Firebase single document state!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to generate sitemap.');
+    } finally {
+      setIsGeneratingSitemap(false);
+    }
+  };
+
+  const handleDownloadSitemap = () => {
+    if (!sitemapXmlContent) {
+      showNotification('info', 'Please generate the sitemap first.');
+      return;
+    }
+    const blob = new Blob([sitemapXmlContent], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sitemap.xml';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showNotification('success', 'sitemap.xml downloaded successfully.');
+  };
+
+  // ----------------------------------------------------
+  // Leadership & Executive Portraits Actions
+  // ----------------------------------------------------
+  const handlePrincipalFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', 'Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showNotification('error', 'Image file size must be under 10MB.');
+      return;
+    }
+
+    setIsUploadingPrincipalPhoto(true);
+    showNotification('info', 'Uploading Principal custom photo to CDN media storage...');
+    try {
+      const res = await uploadToCloudinary(file, { folder: 'dare_arqam_leadership' });
+      if (res.success && res.url) {
+        setTempPrincipalPhoto(res.url);
+        await updatePrincipalPhoto(res.url);
+        showNotification('success', 'Principal custom photo successfully uploaded & published website-wide!');
+      } else {
+        showNotification('error', res.error || 'Failed to upload Principal photo.');
+      }
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Error uploading Principal photo.');
+    } finally {
+      setIsUploadingPrincipalPhoto(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleApplyPrincipalPhoto = async () => {
+    if (!tempPrincipalPhoto.trim()) {
+      showNotification('error', 'Please provide or upload a valid photo URL first.');
+      return;
+    }
+    setIsUploadingPrincipalPhoto(true);
+    try {
+      await updatePrincipalPhoto(tempPrincipalPhoto.trim());
+      showNotification('success', 'Principal custom photo published website-wide!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to update photo.');
+    } finally {
+      setIsUploadingPrincipalPhoto(false);
+    }
+  };
+
+  const handleResetPrincipalPhoto = async () => {
+    await resetPrincipalPhoto();
+    setTempPrincipalPhoto('');
+    showNotification('info', 'Principal portrait reset to institutional default image.');
+  };
+
+  const handleSavePrincipalDetails = async () => {
+    try {
+      await updatePrincipalDetails({
+        principalName: tempPrincipalName.trim(),
+        principalTitle: tempPrincipalTitle.trim(),
+        principalQualification: tempPrincipalQual.trim(),
+        principalMessage: tempPrincipalMsg.trim(),
+      });
+      showNotification('success', 'Principal details & communique successfully updated!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to save principal details.');
+    }
   };
 
   // ----------------------------------------------------
@@ -498,63 +775,47 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
   };
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans">
-      {/* 1. Executive Top Bar (Distinct Institutional Look) */}
-      <header className="bg-stone-900 border-b border-stone-800 sticky top-0 z-40 px-4 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Left: Emblem + Directorate Header */}
-          <div className="flex items-center gap-3">
-            <Emblem size="md" className="ring-2 ring-emerald-600/70" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-editorial text-lg sm:text-xl font-bold tracking-tight text-white">
-                  DARE ARQAM
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">
-                  DIRECTORATE CONSOLE
-                </span>
-              </div>
-              <div className="text-[11px] text-stone-400 font-mono hidden sm:block">
-                Directorate Executive Management Panel
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#0A0D18] text-stone-100 flex flex-col font-sans">
+      {/* 1. Professional Admin Header with Left Hamburger Button */}
+      <AdminHeader
+        currentSectionTitle={getSectionTitle(currentTab)}
+        adminUser={adminUser}
+        isDrawerOpen={isDrawerOpen}
+        onToggleDrawer={() => setIsDrawerOpen(!isDrawerOpen)}
+        onNavigatePublic={(page) => onNavigate(page)}
+        onLogout={handleAdminLogout}
+        onOpenSecurity={() => setCurrentTab('security')}
+        unreadCount={inquiries.filter(i => i.status === 'Unread').length}
+      />
 
-          {/* Right: Quick actions (View Site & Logout) */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => onNavigate('home')}
-              className="px-3 py-1.5 text-xs font-medium text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
-              title="Open Public Website"
-            >
-              <Globe className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">View Public Website</span>
-            </button>
+      {/* 2. Slide-out Navigation Drawer from the LEFT */}
+      <AdminNavigationDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        activeSection={(currentTab === 'overview' ? 'dashboard' : currentTab) as AdminSectionKey}
+        onSelectSection={handleSelectSection}
+        adminUser={adminUser}
+        onLogout={handleAdminLogout}
+        badgeCounts={{
+          pendingAdmissions: admissions.filter(a => a.status === 'PENDING' || a.status === 'UNDER REVIEW').length,
+          unreadInquiries: inquiries.filter(i => i.status === 'Unread').length,
+          totalNotices: notices.length
+        }}
+      />
 
-            <button
-              onClick={handleAdminLogout}
-              className="px-3 py-1.5 text-xs font-semibold text-red-200 hover:text-white bg-red-950/70 hover:bg-red-900 border border-red-800/80 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* 2. Feedback Notification Toast */}
+      {/* 3. Feedback Notification Toast */}
       {feedback && (
         <div className="fixed top-16 right-4 z-50 max-w-md animate-in slide-in-from-top-2">
           <div
             className={`p-4 rounded-lg shadow-xl border text-xs sm:text-sm flex items-start gap-3 ${
               feedback.type === 'success'
-                ? 'bg-emerald-950 border-emerald-700 text-emerald-200'
+                ? 'bg-[#20216B] border-[#292A86] text-[#FFF000]'
                 : feedback.type === 'error'
                 ? 'bg-red-950 border-red-700 text-red-200'
                 : 'bg-stone-900 border-stone-700 text-stone-200'
             }`}
           >
-            {feedback.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
+            {feedback.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#FFF000] shrink-0" />}
             {feedback.type === 'error' && <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />}
             {feedback.type === 'info' && <Sparkles className="w-5 h-5 text-amber-400 shrink-0" />}
             <span className="leading-snug">{feedback.text}</span>
@@ -562,322 +823,1296 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
         </div>
       )}
 
-      {/* 3. Main Dashboard Layout (Tab Bar + Content) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-6">
-        {/* Navigation Tabs */}
-        <div className="bg-stone-900 p-1.5 rounded-xl border border-stone-800 flex flex-wrap gap-1">
-          <button
-            onClick={() => setCurrentTab('branding')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              currentTab === 'branding'
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800'
-            }`}
-          >
-            <ImageIcon className="w-4 h-4 text-emerald-300" />
-            <span>Custom Logo & Branding</span>
-          </button>
+      {/* 4. Main Content Area */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 w-full flex-1 space-y-5">
+        {/* Section Header Breadcrumb Bar */}
+        <div className="bg-[#12172B] px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border border-[#202946] flex items-center justify-between gap-3 shadow-sm">
+          {/* Left: Current Active Section Breadcrumb */}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs text-stone-400 font-mono hidden sm:inline">Administration /</span>
+            <div className="inline-flex items-center gap-2 text-white text-xs sm:text-sm font-bold truncate">
+              <span className="w-2 h-2 rounded-full bg-[#FFF000] shrink-0" />
+              <span className="truncate">{getSectionTitle(currentTab)}</span>
+            </div>
+          </div>
 
-          <button
-            onClick={() => setCurrentTab('notices')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              currentTab === 'notices'
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800'
-            }`}
-          >
-            <FileText className="w-4 h-4 text-emerald-300" />
-            <span>Notices & Circulars</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab('results')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              currentTab === 'results'
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800'
-            }`}
-          >
-            <Award className="w-4 h-4 text-emerald-300" />
-            <span>Examination Results</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab('admissions')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              currentTab === 'admissions'
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800'
-            }`}
-          >
-            <Users className="w-4 h-4 text-emerald-300" />
-            <span>Admissions Applications</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab('inquiries')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              currentTab === 'inquiries'
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4 text-emerald-300" />
-            <span>Public Inquiries</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab('security')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              currentTab === 'security'
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'text-stone-400 hover:text-white hover:bg-stone-800'
-            }`}
-          >
-            <KeyRound className="w-4 h-4 text-emerald-300" />
-            <span>Security & Password</span>
-          </button>
+          {/* Right: Quick Action to Dashboard Overview or Public Website */}
+          <div className="flex items-center gap-2 shrink-0">
+            {currentTab !== 'overview' && (
+              <button
+                type="button"
+                onClick={() => setCurrentTab('overview')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-stone-300 hover:text-white bg-[#182038] hover:bg-[#202946] border border-[#2A375E] transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="hidden sm:inline">Overview Dashboard</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onNavigate('home')}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-stone-300 hover:text-white bg-[#182038] hover:bg-[#202946] border border-[#2A375E] transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              title="Open Public Website"
+            >
+              <Globe className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span className="hidden sm:inline">View Website</span>
+            </button>
+          </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* TAB 1: CUSTOM LOGO & BRANDING MANAGEMENT */}
+        {/* TAB 0: EXECUTIVE DASHBOARD OVERVIEW & QUICK ACTIONS */}
+        {/* ========================================================================= */}
+        {currentTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Executive Welcome Card */}
+            <div className="bg-gradient-to-r from-[#12172B] via-[#161E38] to-[#12172B] border border-[#263354] rounded-2xl p-6 sm:p-8 relative overflow-hidden shadow-xl">
+              <div className="absolute right-0 top-0 w-96 h-96 bg-[#20216B]/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#20216B] text-[#FFF000] border border-[#D4AF37]/40 text-xs font-mono font-bold mb-3">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>DIRECTORATE COMMAND CENTER · ACTIVE SESSION</span>
+                  </div>
+                  <h2 className="font-editorial text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                    Welcome, Administrator
+                  </h2>
+                  <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-2xl font-prose-serif leading-relaxed">
+                    Access all management modules via the <strong>Navigation Menu</strong> on the left side or select a quick action below to configure branding, publish circulars, record examination results, and manage applications.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsDrawerOpen(true)}
+                    className="px-4 py-2.5 bg-gradient-to-r from-[#20216B] to-[#292A86] text-[#FFF000] border border-[#D4AF37] rounded-xl text-xs font-bold hover:brightness-110 transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95"
+                  >
+                    <Menu className="w-4 h-4" />
+                    <span>Open Navigation Menu</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Metrics Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-[#12172B] border border-[#202946] rounded-xl p-4 sm:p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-stone-400">
+                  <span className="text-xs font-mono uppercase tracking-wider">Published Notices</span>
+                  <FileText className="w-4 h-4 text-[#D4AF37]" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{notices.length}</div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('notices')}
+                  className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
+                >
+                  Manage Notices & Circulars →
+                </button>
+              </div>
+
+              <div className="bg-[#12172B] border border-[#202946] rounded-xl p-4 sm:p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-stone-400">
+                  <span className="text-xs font-mono uppercase tracking-wider">Exam Records</span>
+                  <Award className="w-4 h-4 text-[#D4AF37]" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{resultsList.length}</div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('results')}
+                  className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
+                >
+                  Manage Exam Results →
+                </button>
+              </div>
+
+              <div className="bg-[#12172B] border border-[#202946] rounded-xl p-4 sm:p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-stone-400">
+                  <span className="text-xs font-mono uppercase tracking-wider">Admissions</span>
+                  <Users className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{admissions.length}</div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('admissions')}
+                  className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
+                >
+                  Review Applications →
+                </button>
+              </div>
+
+              <div className="bg-[#12172B] border border-[#202946] rounded-xl p-4 sm:p-5 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-stone-400">
+                  <span className="text-xs font-mono uppercase tracking-wider">Public Inquiries</span>
+                  <MessageSquare className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{inquiries.length}</div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('inquiries')}
+                  className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
+                >
+                  View Inquiries & Messages →
+                </button>
+              </div>
+            </div>
+
+            {/* 8 Core Management Modules Grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-stone-200 uppercase tracking-wider font-mono flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#D4AF37]" />
+                  <span>Institutional Management Modules</span>
+                </h3>
+                <span className="text-xs text-stone-400">All 8 modules accessible in left menu</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                {/* 1. Custom Logo & Branding */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('branding')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Custom Logo & Branding
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Upload circular emblem and wide hero cover backdrop banner.
+                  </p>
+                </button>
+
+                {/* 2. Principal Custom Photo */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('leadership')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <UserCheck className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Principal Custom Photo
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Update Principal picture, designation, qualifications, and official address.
+                  </p>
+                </button>
+
+                {/* 3. Social Media Management */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('social')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Social Media Management
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Manage YouTube, Facebook, TikTok, and WhatsApp URLs & toggles.
+                  </p>
+                </button>
+
+                {/* 4. Notices & Circulars */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('notices')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Notices & Circulars
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Publish official notices, holiday notifications, and exam dates.
+                  </p>
+                </button>
+
+                {/* 5. Examination Results */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('results')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Examination Results
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Record marks, search student transcripts, and verify grade sheets.
+                  </p>
+                </button>
+
+                {/* 6. Admissions Applications */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('admissions')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Admissions Applications
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Review incoming admission forms, schedule interviews, and approve candidates.
+                  </p>
+                </button>
+
+                {/* 7. Public Inquiries */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('inquiries')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Public Inquiries
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Track parent queries, contact submissions, and support requests.
+                  </p>
+                </button>
+
+                {/* 8. Security & Password */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('security')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <KeyRound className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Security & Password
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Update administrative credentials, view audit logs, and security logs.
+                  </p>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 1: CUSTOM LOGO, HERO BANNER & BRANDING MANAGEMENT */}
         {/* ========================================================================= */}
         {currentTab === 'branding' && (
           <div className="space-y-6">
+            {/* Top Identity Status Bar */}
             <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
                 <div>
-                  <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-widest font-bold block">
+                  <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
                     INSTITUTIONAL IDENTITY & MEDIA CLOUD
                   </span>
                   <h2 className="font-editorial text-2xl font-bold text-white mt-1">
-                    Custom Logo & Cloudinary Storage
+                    Custom Logo & Hero Cover Banner Management
                   </h2>
                   <p className="text-xs sm:text-sm text-stone-400 mt-1 font-prose-serif leading-relaxed">
-                    Upload an ultra-high quality emblem image to be displayed across the entire website (Header, Hamburger Menu, Footer, Student Portal, Verification, and Results).
+                    Upload your custom institutional circular logo and wide hero backdrop banner. Changes publish live website-wide in ultra-high resolution.
                   </p>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/80 border border-emerald-700/60 rounded-lg text-emerald-300 text-xs shrink-0 font-mono">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Cloudinary Storage: <strong>ehc1fewm</strong></span>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#20216B] border border-[#292A86]/60 rounded-lg text-[#FFF000] text-xs shrink-0 font-mono">
+                  <div className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse" />
+                  <span>Cloudinary Media CDN: <strong>ehc1fewm</strong></span>
                 </div>
               </div>
 
-              {/* Upload & Input Grid */}
+              {/* SECTION 1: HERO COVER BANNER (BACKDROP) */}
+              <div className="bg-stone-950/80 border border-stone-800 rounded-xl p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-stone-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center font-bold text-xs">
+                      01
+                    </div>
+                    <div>
+                      <h3 className="font-editorial text-base sm:text-lg font-bold text-white">
+                        Hero Cover Backdrop Banner
+                      </h3>
+                      <p className="text-xs text-stone-400 font-prose-serif">
+                        Wide background banner image displayed at the top of the homepage behind the big round logo.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#FFF000] bg-[#20216B] px-2.5 py-1 rounded border border-[#292A86] font-bold">
+                    {tempBannerUrl ? 'Custom Banner Set' : 'Default Campus Banner'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pt-2">
+                  {/* Banner Upload / URL */}
+                  <div className="lg:col-span-7 space-y-4">
+                    {/* File Upload Box */}
+                    <div className="border-2 border-dashed border-stone-700 hover:border-[#F5D900] rounded-xl p-5 text-center transition-colors bg-stone-900/50 relative">
+                      <input
+                        type="file"
+                        id="banner-file-input"
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={handleBannerFileUpload}
+                        disabled={isUploadingBanner}
+                        className="hidden"
+                      />
+                      <label 
+                        htmlFor="banner-file-input"
+                        className="cursor-pointer block space-y-2"
+                      >
+                        <div className="w-12 h-12 bg-[#20216B] border border-[#292A86] text-[#FFF000] rounded-full flex items-center justify-center mx-auto shadow-inner">
+                          <Upload className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-xs sm:text-sm font-semibold text-[#FFF000] hover:underline">
+                            {isUploadingBanner ? 'Uploading Banner to Cloudinary CDN...' : 'Click to upload custom hero banner image'}
+                          </span>
+                          <p className="text-[11px] text-[#94A3B8] mt-0.5 font-mono">
+                            High resolution landscape format (recommended: 1920x800px or 16:9)
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Direct Banner URL */}
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-1">
+                        Or Specify Banner Web Image URL
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://your-domain.com/campus-cover-banner.jpg"
+                          value={tempBannerUrl}
+                          onChange={(e) => setTempBannerUrl(e.target.value)}
+                          className="flex-1 px-3.5 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-900 text-white focus:outline-hidden focus:ring-2 focus:ring-[#292A86] font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyBanner}
+                          disabled={isUploadingBanner}
+                          className="px-4 py-2 text-xs font-bold text-white bg-[#20216B] hover:bg-[#292A86] border border-[#F5D900]/40 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        >
+                          <Save className="w-3.5 h-3.5 text-[#FFF000]" />
+                          <span>Save Banner</span>
+                        </button>
+                        {tempBannerUrl && (
+                          <button
+                            type="button"
+                            onClick={handleResetBanner}
+                            className="px-3 py-2 text-xs text-stone-400 hover:text-white bg-stone-800 rounded-lg transition-colors"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Banner Preview */}
+                  <div className="lg:col-span-5 bg-stone-900 border border-stone-800 rounded-xl p-3.5 space-y-2">
+                    <span className="text-xs font-mono font-bold text-stone-300 uppercase block">
+                      Current Banner Preview
+                    </span>
+                    <div className="relative w-full h-44 rounded-lg overflow-hidden border border-stone-700 bg-stone-950">
+                      <img
+                        src={tempBannerUrl || bannerUrl || '/src/assets/images/campus_main_building_1790434904126.jpg'}
+                        alt="Hero Cover Banner Live Preview"
+                        className="w-full h-full object-cover object-center"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      <div className="absolute bottom-2 left-2 right-2 text-white text-[11px] font-bold truncate">
+                        {tempBannerUrl ? 'Active Custom Cover Banner' : 'Default Academic Campus Block'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: CUSTOM LOGO / BIG ROUND EMBLEM */}
+              <div className="bg-stone-950/80 border border-stone-800 rounded-xl p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-stone-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center font-bold text-xs">
+                      02
+                    </div>
+                    <div>
+                      <h3 className="font-editorial text-base sm:text-lg font-bold text-white">
+                        Institutional Circular Logo / Crest
+                      </h3>
+                      <p className="text-xs text-stone-400 font-prose-serif">
+                        Big round logo displayed overlapping the hero cover banner and across the top navigation bar.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#FFF000] bg-[#20216B] px-2.5 py-1 rounded border border-[#292A86] font-bold">
+                    {tempLogoUrl ? 'Custom Emblem Set' : 'Default Vector Crest'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-2">
+                  {/* Left: Upload and URL controls */}
+                  <div className="lg:col-span-7 space-y-5">
+                    {/* File Upload Box */}
+                    <div className="border-2 border-dashed border-stone-700 hover:border-[#F5D900] rounded-xl p-6 text-center transition-colors bg-stone-900/50 relative">
+                      <input
+                        type="file"
+                        id="logo-file-input"
+                        accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                        onChange={handleLogoFileUpload}
+                        className="hidden"
+                      />
+                      <label 
+                        htmlFor="logo-file-input"
+                        className="cursor-pointer block space-y-3"
+                      >
+                        <div className="w-14 h-14 bg-[#20216B] border border-[#292A86] text-[#FFF000] rounded-full flex items-center justify-center mx-auto shadow-inner">
+                          <Upload className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <span className="text-xs sm:text-sm font-semibold text-[#FFF000] hover:underline">
+                            Click here to upload logo & launch visual customizer
+                          </span>
+                          <p className="text-[11px] text-[#94A3B8] mt-1 font-mono">
+                            Live Zoom In/Out, Pan/Drag, 360° Tilt/Rotate & Circular/Square Crop
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Or Enter Direct Logo Image URL */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider">
+                          Or Enter Logo Web URL (High-Res CDN or Cloud Image)
+                        </label>
+                        {tempLogoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCustomizer(tempLogoUrl)}
+                            className="text-xs text-[#FFF000] hover:text-[#FFF000] font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Crop className="w-3.5 h-3.5" />
+                            <span>Customize & Crop Image</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://your-domain.com/official-logo.png"
+                          value={tempLogoUrl}
+                          onChange={(e) => setTempLogoUrl(e.target.value)}
+                          className="flex-1 px-3.5 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-900 text-white focus:outline-hidden focus:ring-2 focus:ring-[#292A86] font-mono"
+                        />
+                        {tempLogoUrl && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCustomizer(tempLogoUrl)}
+                              className="px-3 py-2 text-xs text-[#FFF000] bg-[#20216B] hover:bg-[#20216B] border border-[#292A86]/60 rounded-lg flex items-center gap-1.5 font-semibold cursor-pointer"
+                              title="Open interactive zoom/rotate/crop editor"
+                            >
+                              <Sliders className="w-3.5 h-3.5" />
+                              <span>Crop / Tilt</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTempLogoUrl('')}
+                              className="px-3 py-2 text-xs text-stone-400 hover:text-white bg-stone-800 rounded-lg cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Institution Title & Tagline update */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-1.5">
+                          Institution Name
+                        </label>
+                        <input
+                          type="text"
+                          value={tempInstName}
+                          onChange={(e) => setTempInstName(e.target.value)}
+                          className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-1.5">
+                          Tagline / Subtitle
+                        </label>
+                        <input
+                          type="text"
+                          value={tempTagline}
+                          onChange={(e) => setTempTagline(e.target.value)}
+                          className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="pt-3 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleApplyLogo}
+                        className="px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-[#20216B] hover:bg-[#292A86] border border-[#F5D900]/40 rounded-lg transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+                      >
+                        <Save className="w-4 h-4 text-[#FFF000]" />
+                        <span>Save & Apply Logo Website-Wide</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleResetToDefaultLogo}
+                        className="px-4 py-2.5 text-xs font-medium text-stone-400 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Reset to Default Vector Emblem
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right: EXACT HERO SECTION COMPOSITION PREVIEW (Cover Banner + Big Round Logo Overlapping + Title) */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <div className="flex items-center justify-between pb-1">
+                      <span className="text-xs font-mono font-bold text-stone-300 uppercase">
+                        Live Homepage Hero Layout Preview
+                      </span>
+                      <span className="text-[10px] font-mono text-[#FFF000]">WYSIWYG Simulation</span>
+                    </div>
+
+                    {/* Exact Hero Mockup matching User Reference Image */}
+                    <div className="bg-[#171852] border-2 border-[#292A86] rounded-2xl overflow-hidden shadow-2xl space-y-0">
+                      {/* Top Banner Cover */}
+                      <div className="relative w-full h-32 bg-[#0F1035] overflow-hidden">
+                        <img
+                          src={tempBannerUrl || bannerUrl || '/src/assets/images/campus_main_building_1790434904126.jpg'}
+                          alt="Hero Banner Preview"
+                          className="w-full h-full object-cover object-center"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#171852] via-[#171852]/50 to-transparent" />
+                      </div>
+
+                      {/* Center Overlapping Big Round Logo */}
+                      <div className="-mt-14 flex justify-center relative z-10 mb-2">
+                        <div className="p-1 bg-[#171852] rounded-full shadow-2xl ring-2 ring-[#FFF000]/60">
+                          <div className="w-24 h-24 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-inner">
+                            {tempLogoUrl ? (
+                              <img
+                                src={tempLogoUrl}
+                                alt="Big Round Logo Preview"
+                                className="w-full h-full object-contain p-1.5 select-none"
+                              />
+                            ) : (
+                              <Emblem size="lg" className="!w-full !h-full" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Text Directly Underneath (DAR - E - ARQAM) */}
+                      <div className="text-center px-4 pb-4 space-y-1">
+                        <div className="font-editorial text-lg font-extrabold text-white leading-tight">
+                          {tempInstName}
+                        </div>
+                        <div className="text-xs font-bold text-[#FFF000] tracking-wide uppercase">
+                          {tempTagline}
+                        </div>
+                        <div className="text-[10px] text-[#EEF0FF]/70 font-mono pt-1 border-t border-white/10 mt-2">
+                          Live Hero Section Preview (Matching Reference Composition)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: AUTOMATED SITEMAP.XML GENERATOR FOR SEO CRAWLERS */}
+              <div className="bg-stone-950/80 border border-stone-800 rounded-xl p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-stone-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center font-bold text-xs">
+                      03
+                    </div>
+                    <div>
+                      <h3 className="font-editorial text-base sm:text-lg font-bold text-white">
+                        Automated Sitemap.xml Generator (SEO CRAWLERS)
+                      </h3>
+                      <p className="text-xs text-stone-400 font-prose-serif">
+                        Automatically tracks all institutional portal pages, priorities, and change frequencies, saving the XML sitemap directly to Firebase.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#FFF000] bg-[#20216B] px-2.5 py-1 rounded border border-[#292A86] font-bold">
+                    Search Engine Indexing
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateSitemap}
+                    disabled={isGeneratingSitemap}
+                    className="px-5 py-2.5 text-xs font-bold text-white bg-[#20216B] hover:bg-[#292A86] border border-[#F5D900]/40 rounded-lg transition-all flex items-center gap-2 cursor-pointer shadow-md"
+                  >
+                    <Code className="w-4 h-4 text-[#FFF000]" />
+                    <span>{isGeneratingSitemap ? 'Generating Sitemap...' : 'Generate & Sync Sitemap to Firebase'}</span>
+                  </button>
+
+                  {sitemapXmlContent && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadSitemap}
+                      className="px-5 py-2.5 text-xs font-bold text-[#171852] bg-[#FFF000] hover:bg-[#F5D900] rounded-lg transition-all flex items-center gap-2 cursor-pointer shadow-md"
+                    >
+                      <Download className="w-4 h-4 text-[#171852]" />
+                      <span>Download sitemap.xml</span>
+                    </button>
+                  )}
+                </div>
+
+                {sitemapXmlContent && (
+                  <div className="space-y-2 pt-2">
+                    <span className="text-[11px] font-mono text-stone-300 font-bold block uppercase">
+                      Generated sitemap.xml Preview:
+                    </span>
+                    <pre className="p-3 bg-stone-900 border border-stone-800 rounded-lg text-emerald-400 text-[11px] font-mono overflow-x-auto max-h-56">
+                      {sitemapXmlContent}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: PRINCIPAL CUSTOM PHOTO & PROFILE */}
+        {/* ========================================================================= */}
+        {currentTab === 'leadership' && (
+          <div className="space-y-8">
+            {/* Header Card */}
+            <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8">
+              <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
+                EXECUTIVE LEADERSHIP & PORTRAIT MANAGEMENT
+              </span>
+              <h2 className="font-editorial text-2xl sm:text-3xl font-bold text-white mt-1">
+                Principal Custom Photograph & Information
+              </h2>
+              <p className="text-xs sm:text-sm text-stone-400 mt-2 font-prose-serif max-w-3xl leading-relaxed">
+                Upload a custom high-resolution photograph for the School Principal. You can upload an image file directly from your computer or specify a web image link. All changes persist automatically to Firebase and reflect immediately across the homepage and principal's address page.
+              </p>
+            </div>
+
+            {/* SECTION: PRINCIPAL CUSTOM PHOTO & PROFILE */}
+            <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#20216B] text-[#FFF000] flex items-center justify-center font-bold text-sm border border-[#292A86]">
+                    01
+                  </div>
+                  <div>
+                    <h3 className="font-editorial text-xl font-bold text-white">
+                      Principal Custom Portrait & Information
+                    </h3>
+                    <p className="text-xs text-stone-400 font-prose-serif">
+                      Controls the official portrait, name, designation, and welcome address of the School Principal.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-[#FFF000] bg-[#20216B] px-3 py-1 rounded border border-[#292A86] font-bold self-start sm:self-auto">
+                  {principalPhotoUrl ? 'Custom Photo Active' : 'Default Institutional Photo'}
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Left: Upload and URL controls */}
-                <div className="lg:col-span-7 space-y-5">
+                {/* Upload & Controls */}
+                <div className="lg:col-span-7 space-y-4">
                   {/* File Upload Box */}
-                  <div className="border-2 border-dashed border-stone-700 hover:border-emerald-500 rounded-xl p-6 text-center transition-colors bg-stone-950/60 relative">
+                  <div className="border-2 border-dashed border-stone-700 hover:border-[#F5D900] rounded-xl p-5 text-center transition-colors bg-stone-950/50 relative">
                     <input
                       type="file"
-                      id="logo-file-input"
-                      accept="image/png, image/jpeg, image/webp, image/svg+xml"
-                      onChange={handleLogoFileUpload}
+                      id="principal-file-input"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={handlePrincipalFileUpload}
+                      disabled={isUploadingPrincipalPhoto}
                       className="hidden"
                     />
                     <label 
-                      htmlFor="logo-file-input"
-                      className="cursor-pointer block space-y-3"
+                      htmlFor="principal-file-input"
+                      className="cursor-pointer block space-y-2"
                     >
-                      <div className="w-14 h-14 bg-emerald-950 border border-emerald-700 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                        <Upload className="w-6 h-6" />
+                      <div className="w-12 h-12 bg-[#20216B] border border-[#292A86] text-[#FFF000] rounded-full flex items-center justify-center mx-auto shadow-inner">
+                        {isUploadingPrincipalPhoto ? (
+                          <RefreshCw className="w-5 h-5 animate-spin text-[#FFF000]" />
+                        ) : (
+                          <Camera className="w-5 h-5" />
+                        )}
                       </div>
                       <div>
-                        <span className="text-xs sm:text-sm font-semibold text-emerald-400 hover:underline">
-                          Click here to upload logo & launch visual customizer
+                        <span className="text-xs sm:text-sm font-semibold text-[#FFF000] hover:underline">
+                          {isUploadingPrincipalPhoto ? 'Uploading Principal photo to CDN...' : 'Click to upload Principal custom photo from computer'}
                         </span>
-                        <p className="text-[11px] text-stone-500 mt-1 font-mono">
-                          Live Zoom In/Out, Pan/Drag, 360° Tilt/Rotate & Circular/Square Crop
+                        <p className="text-[11px] text-[#94A3B8] mt-0.5 font-mono">
+                          Square or portrait ratio (PNG, JPG, WebP up to 10MB)
                         </p>
                       </div>
                     </label>
                   </div>
 
-                  {/* Or Enter Direct Logo Image URL */}
+                  {/* Direct Photo URL */}
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider">
-                        Or Enter Image Web URL (High-Res CDN or Cloud Image)
-                      </label>
-                      {tempLogoUrl && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCustomizer(tempLogoUrl)}
-                          className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
-                        >
-                          <Crop className="w-3.5 h-3.5" />
-                          <span>Customize & Crop Image</span>
-                        </button>
-                      )}
-                    </div>
+                    <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-1">
+                      Or Specify Web Photo URL
+                    </label>
                     <div className="flex gap-2">
                       <input
                         type="url"
-                        placeholder="https://your-domain.com/official-logo.png"
-                        value={tempLogoUrl}
-                        onChange={(e) => setTempLogoUrl(e.target.value)}
-                        className="flex-1 px-3.5 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                        placeholder="https://your-domain.com/principal-photo.jpg"
+                        value={tempPrincipalPhoto}
+                        onChange={(e) => setTempPrincipalPhoto(e.target.value)}
+                        className="flex-1 px-3.5 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-[#292A86] font-mono"
                       />
-                      {tempLogoUrl && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenCustomizer(tempLogoUrl)}
-                            className="px-3 py-2 text-xs text-emerald-300 bg-emerald-950 hover:bg-emerald-900 border border-emerald-700/60 rounded-lg flex items-center gap-1.5 font-semibold"
-                            title="Open interactive zoom/rotate/crop editor"
-                          >
-                            <Sliders className="w-3.5 h-3.5" />
-                            <span>Crop / Tilt</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTempLogoUrl('')}
-                            className="px-3 py-2 text-xs text-stone-400 hover:text-white bg-stone-800 rounded-lg"
-                          >
-                            Clear
-                          </button>
-                        </>
+                      <button
+                        type="button"
+                        onClick={handleApplyPrincipalPhoto}
+                        disabled={isUploadingPrincipalPhoto}
+                        className="px-4 py-2 text-xs font-bold text-white bg-[#20216B] hover:bg-[#292A86] border border-[#F5D900]/40 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Save className="w-3.5 h-3.5 text-[#FFF000]" />
+                        <span>Save Photo</span>
+                      </button>
+                      {principalPhotoUrl && (
+                        <button
+                          type="button"
+                          onClick={handleResetPrincipalPhoto}
+                          className="px-3 py-2 text-xs font-medium text-stone-400 hover:text-white bg-stone-800 hover:bg-stone-700 rounded-lg transition-colors cursor-pointer"
+                          title="Reset to default image"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   </div>
 
-                  {/* Institution Title & Tagline update */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  {/* Principal Details Form */}
+                  <div className="bg-stone-950/60 border border-stone-800 rounded-xl p-4 sm:p-5 space-y-4 pt-4">
+                    <div className="text-xs font-bold text-[#FFF000] uppercase tracking-wider flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" />
+                      <span>Principal Identity & Address Details</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                          Principal Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={tempPrincipalName}
+                          onChange={(e) => setTempPrincipalName(e.target.value)}
+                          placeholder="e.g. Prof. Dr. Abdul Rahman Qureshi"
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                          Designation / Title
+                        </label>
+                        <input
+                          type="text"
+                          value={tempPrincipalTitle}
+                          onChange={(e) => setTempPrincipalTitle(e.target.value)}
+                          placeholder="e.g. Principal"
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                        />
+                      </div>
+                    </div>
+
                     <div>
-                      <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-1.5">
-                        Institution Name
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Academic Qualifications
                       </label>
                       <input
                         type="text"
-                        value={tempInstName}
-                        onChange={(e) => setTempInstName(e.target.value)}
-                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-950 text-white"
+                        value={tempPrincipalQual}
+                        onChange={(e) => setTempPrincipalQual(e.target.value)}
+                        placeholder="e.g. Ph.D. in Educational Leadership & Curriculum Design"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-1.5">
-                        Tagline / Subtitle
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Principal Communique / Welcome Quote
                       </label>
-                      <input
-                        type="text"
-                        value={tempTagline}
-                        onChange={(e) => setTempTagline(e.target.value)}
-                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-950 text-white"
+                      <textarea
+                        rows={3}
+                        value={tempPrincipalMsg}
+                        onChange={(e) => setTempPrincipalMsg(e.target.value)}
+                        placeholder="Official message or quote displayed on homepage and principal page..."
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86] resize-none"
                       />
                     </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="pt-3 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleApplyLogo}
-                      className="px-6 py-2.5 text-xs sm:text-sm font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors shadow-lg shadow-emerald-950 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Save & Apply Website-Wide</span>
-                    </button>
 
                     <button
                       type="button"
-                      onClick={handleResetToDefaultLogo}
-                      className="px-4 py-2.5 text-xs font-medium text-stone-400 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-colors cursor-pointer"
+                      onClick={handleSavePrincipalDetails}
+                      className="px-4 py-2.5 bg-[#FFF000] hover:bg-[#F5D900] text-[#171852] text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
                     >
-                      Reset to Default Vector Emblem
+                      <Save className="w-3.5 h-3.5 text-[#171852]" />
+                      <span>Save Principal Profile & Address</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Right: Live Preview Panel in Multiple Sizes */}
-                <div className="lg:col-span-5 bg-stone-950 border border-stone-800 rounded-xl p-5 space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-stone-800">
-                    <span className="text-xs font-mono font-bold text-stone-300 uppercase">
-                      Live High-Quality Preview
+                {/* Right: Live Principal Portrait Card Preview */}
+                <div className="lg:col-span-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-300 uppercase tracking-wider">
+                      Live Principal Portrait Preview
                     </span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
-                      {tempLogoUrl ? 'Custom Image Active' : 'Default Vector'}
-                    </span>
+                    <span className="text-[10px] font-mono text-[#FFF000]">Public View</span>
                   </div>
 
-                  {/* Primary Large Preview */}
-                  <div className="bg-stone-900 border border-stone-800 rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-3 relative group">
-                    <Emblem size="xl" customSrc={tempLogoUrl || null} className="shadow-lg" />
-                    <div>
+                  <div className="bg-[#171852] border-2 border-[#292A86] rounded-2xl p-6 text-center shadow-xl space-y-4">
+                    <div className="relative w-36 h-36 mx-auto rounded-full overflow-hidden border-4 border-[#FFF000] shadow-2xl bg-[#EEF0FF]">
+                      <img
+                        src={tempPrincipalPhoto || principalPhotoUrl || DEFAULT_PRINCIPAL_PHOTO}
+                        alt="Principal Preview"
+                        className="w-full h-full object-cover object-top"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-mono font-bold text-[#FFF000] uppercase tracking-wider">
+                        {tempPrincipalTitle || 'Principal'}
+                      </div>
                       <div className="font-editorial text-lg font-bold text-white">
-                        {tempInstName}
+                        {tempPrincipalName || 'Prof. Dr. Abdul Rahman Qureshi'}
                       </div>
-                      <div className="text-xs text-stone-400">
-                        {tempTagline}
+                      <div className="text-xs text-[#EEF0FF]/80 font-mono">
+                        {tempPrincipalQual || 'Ph.D. in Educational Leadership & Curriculum Design'}
                       </div>
                     </div>
-                    {tempLogoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCustomizer(tempLogoUrl)}
-                        className="mt-2 px-3 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/60 rounded-lg text-emerald-300 text-xs font-semibold flex items-center gap-1.5 shadow transition-all"
-                      >
-                        <Crop className="w-3.5 h-3.5" />
-                        <span>Zoom / Rotate / Crop Live</span>
-                      </button>
-                    )}
+
+                    <blockquote className="border-l-2 border-[#FFF000] pl-3 text-[#FFF9B8] text-xs font-prose-serif italic leading-relaxed text-left bg-black/20 p-3 rounded-r-lg">
+                      “{tempPrincipalMsg || 'In an age of rapid technological transition, true education is not merely the accumulation of facts, but the disciplined training of the intellect.'}”
+                    </blockquote>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: SOCIAL MEDIA MANAGEMENT */}
+        {/* ========================================================================= */}
+        {currentTab === 'social' && (
+          <div className="space-y-6">
+            <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
+                <div>
+                  <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
+                    INSTITUTIONAL SOCIAL CHANNELS
+                  </span>
+                  <h2 className="font-editorial text-2xl font-bold text-white mt-1">
+                    Social Media Management & Profiles
+                  </h2>
+                  <p className="text-xs sm:text-sm text-stone-400 mt-1 font-prose-serif leading-relaxed">
+                    Configure official YouTube, Facebook, and TikTok channels. Enabled profiles instantly appear in the public website header strip.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    for (const [key, platform] of Object.entries(tempSocialMedia)) {
+                      if (platform.enabled && platform.url && platform.url.trim() !== '') {
+                        try {
+                          new URL(platform.url);
+                        } catch {
+                          showNotification('error', `Invalid URL format for ${key.toUpperCase()}. Please enter a valid URL (e.g. https://...).`);
+                          return;
+                        }
+                      }
+                    }
+                    await updateSocialMedia(tempSocialMedia);
+                    showNotification('success', 'Social media profiles updated and synchronized with public website successfully!');
+                  }}
+                  className="px-5 py-2.5 bg-[#FFF000] hover:bg-[#F5D900] text-[#171852] text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md shrink-0"
+                >
+                  <Save className="w-4 h-4 text-[#171852]" />
+                  <span>Save All Social Media Changes</span>
+                </button>
+              </div>
+
+              {/* Four Cards: YouTube, Facebook, TikTok, WhatsApp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* 1. YOUTUBE */}
+                <div className="bg-stone-950/80 border border-stone-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-red-950 text-red-400 border border-red-800/60 flex items-center justify-center">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                      </div>
+                      <h3 className="font-editorial text-lg font-bold text-white">YouTube</h3>
+                    </div>
+                    {/* Enable / Disable Toggle */}
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={tempSocialMedia.youtube.enabled}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          youtube: { ...tempSocialMedia.youtube, enabled: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-stone-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                      <span className="ml-2 text-[11px] font-bold text-stone-300">
+                        {tempSocialMedia.youtube.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
                   </div>
 
-                  {/* Multi-Size Rendering Simulation */}
-                  <div className="space-y-2 pt-2">
-                    <div className="text-[11px] font-mono text-stone-400 uppercase tracking-wider">
-                      Rendering Across Key Components:
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Button Display Name (e.g. YouTube)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSocialMedia.youtube.profileName}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          youtube: { ...tempSocialMedia.youtube, profileName: e.target.value }
+                        })}
+                        placeholder="YouTube"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
                     </div>
-                    <div className="space-y-2 text-xs">
-                      {/* Header Simulation */}
-                      <div className="bg-stone-900/80 p-2.5 rounded-lg border border-stone-800 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Emblem size="md" customSrc={tempLogoUrl || null} />
-                          <div>
-                            <div className="font-bold text-white text-xs">{tempInstName}</div>
-                            <div className="text-[10px] text-stone-400">Header Display</div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-mono text-stone-500">44px (md)</span>
-                      </div>
 
-                      {/* Hamburger & Modals Simulation */}
-                      <div className="bg-stone-900/80 p-2.5 rounded-lg border border-stone-800 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Emblem size="sm" customSrc={tempLogoUrl || null} />
-                          <div>
-                            <div className="font-bold text-white text-xs">{tempInstName}</div>
-                            <div className="text-[10px] text-stone-400">Hamburger Menu Display</div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-mono text-stone-500">32px (sm)</span>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Channel URL
+                      </label>
+                      <input
+                        type="url"
+                        value={tempSocialMedia.youtube.url}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          youtube: { ...tempSocialMedia.youtube, url: e.target.value }
+                        })}
+                        placeholder="https://youtube.com/@darearqam"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Display Order
+                      </label>
+                      <input
+                        type="number"
+                        value={tempSocialMedia.youtube.displayOrder}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          youtube: { ...tempSocialMedia.youtube, displayOrder: parseInt(e.target.value) || 1 }
+                        })}
+                        className="w-24 px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
                     </div>
                   </div>
+                </div>
 
-                  {/* Presets */}
-                  <div className="pt-2 border-t border-stone-800 space-y-2">
-                    <span className="text-[11px] font-mono text-stone-400 block">
-                      Quick Institutional Presets:
-                    </span>
-                    <div className="grid grid-cols-3 gap-2">
-                      {PRESET_LOGOS.map((preset, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setTempLogoUrl(preset.url)}
-                          className="p-1.5 rounded-md bg-stone-900 hover:bg-stone-800 border border-stone-700 text-center space-y-1 transition-all group"
-                        >
-                          <img
-                            src={preset.url}
-                            alt={preset.name}
-                            className="w-10 h-10 object-cover rounded-full mx-auto border border-emerald-600/50"
-                          />
-                          <div className="text-[10px] text-stone-300 font-medium truncate">
-                            {preset.name}
-                          </div>
-                        </button>
-                      ))}
+                {/* 2. FACEBOOK */}
+                <div className="bg-stone-950/80 border border-stone-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-950 text-blue-400 border border-blue-800/60 flex items-center justify-center">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                      </div>
+                      <h3 className="font-editorial text-lg font-bold text-white">Facebook</h3>
+                    </div>
+                    {/* Enable / Disable Toggle */}
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={tempSocialMedia.facebook.enabled}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          facebook: { ...tempSocialMedia.facebook, enabled: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-stone-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      <span className="ml-2 text-[11px] font-bold text-stone-300">
+                        {tempSocialMedia.facebook.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Button Display Name (e.g. Facebook)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSocialMedia.facebook.profileName}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          facebook: { ...tempSocialMedia.facebook, profileName: e.target.value }
+                        })}
+                        placeholder="Facebook"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Page URL
+                      </label>
+                      <input
+                        type="url"
+                        value={tempSocialMedia.facebook.url}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          facebook: { ...tempSocialMedia.facebook, url: e.target.value }
+                        })}
+                        placeholder="https://facebook.com/darearqam"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Display Order
+                      </label>
+                      <input
+                        type="number"
+                        value={tempSocialMedia.facebook.displayOrder}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          facebook: { ...tempSocialMedia.facebook, displayOrder: parseInt(e.target.value) || 2 }
+                        })}
+                        className="w-24 px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. TIKTOK */}
+                <div className="bg-stone-950/80 border border-stone-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-pink-950 text-pink-400 border border-pink-800/60 flex items-center justify-center">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19.589 6.686a4.793 4.793 0 0 1-3.77-4.245V2h-3.445v13.672a2.896 2.896 0 0 1-5.201 1.743l-.002-.001.002-.001a2.895 2.895 0 0 1 3.144-4.53v-3.47a6.342 6.342 0 0 0-5.645 5.842.634.634 0 0 0-.014.137v.005a6.344 6.344 0 0 0 10.835 4.485 6.35 6.35 0 0 0 1.848-4.485V8.808a8.196 8.196 0 0 0 4.697 1.458v-3.48a4.776 4.776 0 0 1-1.205-.1z"/>
+                        </svg>
+                      </div>
+                      <h3 className="font-editorial text-lg font-bold text-white">TikTok</h3>
+                    </div>
+                    {/* Enable / Disable Toggle */}
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={tempSocialMedia.tiktok.enabled}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          tiktok: { ...tempSocialMedia.tiktok, enabled: e.target.checked }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-stone-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-600"></div>
+                      <span className="ml-2 text-[11px] font-bold text-stone-300">
+                        {tempSocialMedia.tiktok.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Button Display Name (e.g. TikTok)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSocialMedia.tiktok.profileName}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          tiktok: { ...tempSocialMedia.tiktok, profileName: e.target.value }
+                        })}
+                        placeholder="TikTok"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Account URL
+                      </label>
+                      <input
+                        type="url"
+                        value={tempSocialMedia.tiktok.url}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          tiktok: { ...tempSocialMedia.tiktok, url: e.target.value }
+                        })}
+                        placeholder="https://tiktok.com/@darearqam"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Display Order
+                      </label>
+                      <input
+                        type="number"
+                        value={tempSocialMedia.tiktok.displayOrder}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          tiktok: { ...tempSocialMedia.tiktok, displayOrder: parseInt(e.target.value) || 3 }
+                        })}
+                        className="w-24 px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. WHATSAPP */}
+                <div className="bg-stone-950/80 border border-stone-800 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800/60 flex items-center justify-center">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                        </svg>
+                      </div>
+                      <h3 className="font-editorial text-lg font-bold text-white">WhatsApp</h3>
+                    </div>
+                    {/* Enable / Disable Toggle */}
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={tempSocialMedia.whatsapp?.enabled ?? false}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          whatsapp: { 
+                            ...(tempSocialMedia.whatsapp || { profileName: 'WhatsApp', url: '', phoneNumber: '', displayOrder: 4 }), 
+                            enabled: e.target.checked 
+                          }
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-stone-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      <span className="ml-2 text-[11px] font-bold text-stone-300">
+                        {tempSocialMedia.whatsapp?.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Button Display Name (e.g. WhatsApp)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSocialMedia.whatsapp?.profileName || ''}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          whatsapp: { 
+                            ...(tempSocialMedia.whatsapp || { url: '', phoneNumber: '', displayOrder: 4, enabled: true }), 
+                            profileName: e.target.value 
+                          }
+                        })}
+                        placeholder="WhatsApp"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        WhatsApp Number
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSocialMedia.whatsapp?.phoneNumber || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const cleanDigits = val.replace(/[^0-9]/g, '');
+                          const autoUrl = cleanDigits ? `https://wa.me/${cleanDigits}` : '';
+                          setTempSocialMedia({
+                            ...tempSocialMedia,
+                            whatsapp: { 
+                              ...(tempSocialMedia.whatsapp || { profileName: 'WhatsApp', displayOrder: 4, enabled: true }), 
+                              phoneNumber: val,
+                              url: autoUrl || tempSocialMedia.whatsapp?.url || ''
+                            }
+                          });
+                        }}
+                        placeholder="+92 300 1234567"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        WhatsApp Link / Chat URL
+                      </label>
+                      <input
+                        type="url"
+                        value={tempSocialMedia.whatsapp?.url || ''}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          whatsapp: { 
+                            ...(tempSocialMedia.whatsapp || { profileName: 'WhatsApp', phoneNumber: '', displayOrder: 4, enabled: true }), 
+                            url: e.target.value 
+                          }
+                        })}
+                        placeholder="https://wa.me/923001234567"
+                        className="w-full px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-300 uppercase mb-1">
+                        Display Order
+                      </label>
+                      <input
+                        type="number"
+                        value={tempSocialMedia.whatsapp?.displayOrder ?? 4}
+                        onChange={(e) => setTempSocialMedia({
+                          ...tempSocialMedia,
+                          whatsapp: { 
+                            ...(tempSocialMedia.whatsapp || { profileName: 'WhatsApp', url: '', phoneNumber: '', enabled: true }), 
+                            displayOrder: parseInt(e.target.value) || 4 
+                          }
+                        })}
+                        className="w-24 px-3 py-2 text-xs border border-stone-700 rounded-lg bg-stone-900 text-white focus:ring-2 focus:ring-[#292A86]"
+                      />
                     </div>
                   </div>
                 </div>
@@ -894,7 +2129,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
             <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-widest font-bold block">
+                  <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
                     PUBLIC CIRCULARS & NOTIFICATIONS
                   </span>
                   <h2 className="font-editorial text-2xl font-bold text-white mt-1">
@@ -907,7 +2142,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
 
                 <button
                   onClick={openNewNoticeModal}
-                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors shadow-md flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#20216B] hover:bg-[#292A86] text-white rounded-lg transition-colors shadow-md flex items-center gap-2 cursor-pointer self-start sm:self-auto"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Issue New Notice</span>
@@ -930,20 +2165,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                   <tbody className="divide-y divide-stone-800 bg-stone-900/60 font-prose-serif">
                     {isLoadingNotices ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-stone-500 font-mono">
+                        <td colSpan={6} className="py-8 text-center text-[#475569] font-mono">
                           Loading institutional notices...
                         </td>
                       </tr>
                     ) : notices.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-stone-500 font-mono">
+                        <td colSpan={6} className="py-8 text-center text-[#475569] font-mono">
                           No circulars found. Click "Issue New Notice" to add one.
                         </td>
                       </tr>
                     ) : (
                       notices.map((n) => (
                         <tr key={n.id} className="hover:bg-stone-800/60 transition-colors">
-                          <td className="py-3 px-4 font-mono text-emerald-400 font-medium">
+                          <td className="py-3 px-4 font-mono text-[#FFF000] font-medium">
                             {n.refNo}
                           </td>
                           <td className="py-3 px-4">
@@ -964,13 +2199,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                                 PINNED / URGENT
                               </span>
                             ) : (
-                              <span className="text-stone-500 text-[11px] font-mono">Normal</span>
+                              <span className="text-[#475569] text-[11px] font-mono">Normal</span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-right space-x-2">
                             <button
                               onClick={() => openEditNoticeModal(n)}
-                              className="p-1.5 text-stone-400 hover:text-white hover:bg-stone-800 rounded transition-colors cursor-pointer"
+                              className="p-1.5 text-white/80 hover:text-[#FFF000] hover:bg-[#292A86]/60 rounded transition-colors cursor-pointer"
                               title="Edit Notice"
                             >
                               <Edit3 className="w-4 h-4" />
@@ -1001,7 +2236,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
             <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-widest font-bold block">
+                  <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
                     CONTROLLER OF EXAMINATIONS
                   </span>
                   <h2 className="font-editorial text-2xl font-bold text-white mt-1">
@@ -1014,7 +2249,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
 
                 <button
                   onClick={openNewResultModal}
-                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors shadow-md flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#20216B] hover:bg-[#292A86] text-white rounded-lg transition-colors shadow-md flex items-center gap-2 cursor-pointer self-start sm:self-auto"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Student Result Record</span>
@@ -1023,7 +2258,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
 
               {/* Search Bar */}
               <div className="relative max-w-md">
-                <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-[#475569] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Filter by Student Name or Roll Number..."
@@ -1049,13 +2284,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                   <tbody className="divide-y divide-stone-800 bg-stone-900/60 font-prose-serif">
                     {isLoadingResults ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-stone-500 font-mono">
+                        <td colSpan={6} className="py-8 text-center text-[#475569] font-mono">
                           Loading examination records...
                         </td>
                       </tr>
                     ) : resultsList.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-stone-500 font-mono">
+                        <td colSpan={6} className="py-8 text-center text-[#475569] font-mono">
                           No results found. Click "Add Student Result Record" to create one.
                         </td>
                       </tr>
@@ -1068,7 +2303,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                         )
                         .map((res) => (
                           <tr key={res.id || res.rollNumber} className="hover:bg-stone-800/60 transition-colors">
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-400">
+                            <td className="py-3 px-4 font-mono font-bold text-[#FFF000]">
                               {res.rollNumber}
                             </td>
                             <td className="py-3 px-4">
@@ -1082,14 +2317,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                               <span className="font-bold text-white">{res.obtainedMarks}</span> / {res.totalMarks} ({res.percentage}%)
                             </td>
                             <td className="py-3 px-4">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#20216B] text-[#FFF000] border border-[#292A86]">
                                 {res.overallGrade || 'A'} · {res.resultStatus || 'PASS'}
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right space-x-2">
                               <button
                                 onClick={() => openEditResultModal(res)}
-                                className="p-1.5 text-stone-400 hover:text-white hover:bg-stone-800 rounded transition-colors cursor-pointer"
+                                className="p-1.5 text-white/80 hover:text-[#FFF000] hover:bg-[#292A86]/60 rounded transition-colors cursor-pointer"
                                 title="Edit Result"
                               >
                                 <Edit3 className="w-4 h-4" />
@@ -1119,7 +2354,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
           <div className="space-y-6">
             <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6">
               <div>
-                <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-widest font-bold block">
+                <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
                   DIRECTORATE OF ADMISSIONS & ENROLLMENT
                 </span>
                 <h2 className="font-editorial text-2xl font-bold text-white mt-1">
@@ -1146,20 +2381,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                   <tbody className="divide-y divide-stone-800 bg-stone-900/60 font-prose-serif">
                     {isLoadingAdmissions ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-stone-500 font-mono">
+                        <td colSpan={6} className="py-8 text-center text-[#475569] font-mono">
                           Loading admission records...
                         </td>
                       </tr>
                     ) : admissions.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-stone-500 font-mono">
+                        <td colSpan={6} className="py-8 text-center text-[#475569] font-mono">
                           No admission applications received yet.
                         </td>
                       </tr>
                     ) : (
                       admissions.map((adm) => (
                         <tr key={adm.id} className="hover:bg-stone-800/60 transition-colors">
-                          <td className="py-3 px-4 font-mono text-emerald-400 font-bold">
+                          <td className="py-3 px-4 font-mono text-[#FFF000] font-bold">
                             {adm.applicationRef}
                           </td>
                           <td className="py-3 px-4">
@@ -1177,7 +2412,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                             <span 
                               className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
                                 adm.status === 'APPROVED'
-                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                  ? 'bg-[#20216B] text-[#FFF000] border border-[#292A86]'
                                   : adm.status === 'REJECTED'
                                   ? 'bg-red-950 text-red-300 border border-red-800'
                                   : 'bg-amber-950 text-amber-300 border border-amber-800'
@@ -1221,7 +2456,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
           <div className="space-y-6">
             <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6">
               <div>
-                <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-widest font-bold block">
+                <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
                   PUBLIC SECRETARIAT & HELPDESK
                 </span>
                 <h2 className="font-editorial text-2xl font-bold text-white mt-1">
@@ -1234,11 +2469,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
 
               <div className="space-y-3">
                 {isLoadingInquiries ? (
-                  <div className="p-8 text-center text-stone-500 font-mono text-xs">
+                  <div className="p-8 text-center text-[#475569] font-mono text-xs">
                     Loading inquiries...
                   </div>
                 ) : inquiries.length === 0 ? (
-                  <div className="p-8 text-center text-stone-500 font-mono text-xs">
+                  <div className="p-8 text-center text-[#475569] font-mono text-xs">
                     No active inquiries in secretariat queue.
                   </div>
                 ) : (
@@ -1251,7 +2486,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-white text-sm">{inq.name}</span>
-                            <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-900">
+                            <span className="text-[11px] font-mono text-[#FFF000] bg-[#20216B] px-2 py-0.5 rounded border border-[#292A86]">
                               {inq.inquiryId}
                             </span>
                           </div>
@@ -1265,7 +2500,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                           <select
                             value={inq.status}
                             onChange={async (e) => {
-                              await adminUpdateInquiryStatus(inq.id, e.target.value);
+                              await adminUpdateInquiryStatus(inq.id, e.target.value as InquiryRecord['status']);
                               showNotification('success', 'Inquiry status updated.');
                               await loadInquiries();
                             }}
@@ -1298,7 +2533,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
           <div className="space-y-6">
             <div className="bg-stone-900 border border-stone-800 rounded-xl p-6 sm:p-8 space-y-6 max-w-2xl mx-auto">
               <div>
-                <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-widest font-bold block">
+                <span className="text-[11px] font-mono text-[#FFF000] uppercase tracking-widest font-bold block">
                   EXECUTIVE ACCESS SECURITY
                 </span>
                 <h2 className="font-editorial text-2xl font-bold text-white mt-1">
@@ -1311,10 +2546,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
 
               {/* Active Admin Details Banner */}
               <div className="bg-stone-950 border border-stone-800 rounded-lg p-4 flex items-center gap-3">
-                <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                <ShieldCheck className="w-5 h-5 text-[#FFF000] shrink-0" />
                 <div>
                   <div className="text-xs text-stone-400">Current Administrator Identity:</div>
-                  <div className="font-mono text-sm font-bold text-emerald-300">
+                  <div className="font-mono text-sm font-bold text-[#FFF000]">
                     {activeAdminEmail}
                   </div>
                 </div>
@@ -1332,7 +2567,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                     placeholder="Enter current password (Default: Hasnainqadir8696)"
                     value={currentPasswordInput}
                     onChange={(e) => setCurrentPasswordInput(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-[#292A86] font-mono"
                   />
                 </div>
 
@@ -1346,7 +2581,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                     placeholder="Enter new strong password"
                     value={newPasswordInput}
                     onChange={(e) => setNewPasswordInput(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-[#292A86] font-mono"
                   />
                 </div>
 
@@ -1360,7 +2595,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                     placeholder="Confirm new password"
                     value={confirmPasswordInput}
                     onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-950 text-white focus:outline-hidden focus:ring-2 focus:ring-[#292A86] font-mono"
                   />
                 </div>
 
@@ -1368,7 +2603,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                   <button
                     type="submit"
                     disabled={isChangingPass}
-                    className="w-full py-3 px-6 text-xs sm:text-sm font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                    className="w-full py-3 px-6 text-xs sm:text-sm font-semibold text-white bg-[#20216B] hover:bg-[#292A86] text-white rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                   >
                     <KeyRound className="w-4 h-4" />
                     <span>{isChangingPass ? 'Updating Credentials...' : 'Save New Administrator Password'}</span>
@@ -1471,7 +2706,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                   id="notice-important"
                   checked={noticeFormData.isImportant}
                   onChange={(e) => setNoticeFormData({ ...noticeFormData, isImportant: e.target.checked })}
-                  className="rounded border-stone-700 text-emerald-600 focus:ring-emerald-500"
+                  className="rounded border-stone-700 text-[#20216B] focus:ring-[#292A86]"
                 />
                 <label htmlFor="notice-important" className="text-xs text-amber-300 font-medium cursor-pointer">
                   Mark as Pinned / Urgent Notice (Shows alert indicator on home view)
@@ -1488,7 +2723,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-semibold rounded"
+                  className="px-5 py-2 bg-[#20216B] hover:bg-[#292A86] text-white text-white font-semibold rounded"
                 >
                   Save Notice
                 </button>
@@ -1651,7 +2886,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-semibold rounded"
+                  className="px-5 py-2 bg-[#20216B] hover:bg-[#292A86] text-white text-white font-semibold rounded"
                 >
                   Save Result
                 </button>

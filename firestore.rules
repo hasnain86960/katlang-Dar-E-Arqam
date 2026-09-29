@@ -19,11 +19,6 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Default deny catch-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // 1. Official Notices & Circulars (Publicly readable; protected writes)
     match /notices/{noticeId} {
       allow read, write: if true;

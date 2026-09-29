@@ -32,7 +32,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
       category: 'Campus',
       date: 'March 2026',
       image: '/src/assets/images/campus_main_building_1790434904126.jpg',
-      description: 'The administrative heart of DARE ARQAM featuring the central assembly arena and academic chambers.',
+      description: 'The administrative heart of DAR - E - ARQAM featuring the central assembly arena and academic chambers.',
     },
     {
       id: 'gal-02',
@@ -92,26 +92,26 @@ export const MediaView: React.FC<MediaViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
       {/* Banner */}
-      <div className="pb-4 border-b border-stone-200">
-        <div className="text-xs font-semibold text-emerald-900 tracking-wider uppercase mb-1">
+      <div className="pb-4 border-b border-[#CBD5E1]">
+        <div className="text-xs font-semibold text-[#20216B] tracking-wider uppercase mb-1">
           Institutional Archives & Media
         </div>
-        <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-stone-900">
+        <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#0F1035]">
           Media, News & Document Downloads
         </h1>
-        <p className="text-xs sm:text-sm text-stone-600 mt-1 max-w-2xl font-prose-serif">
+        <p className="text-xs sm:text-sm text-[#334155] mt-1 max-w-2xl font-prose-serif">
           Public statements, photo documentation of campus life, and official institutional documents for parents and scholars.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="bg-stone-100 p-1 rounded-md flex flex-wrap gap-1 border border-stone-200">
+      <div className="bg-[#EEF2F8] p-1 rounded-md flex flex-wrap gap-1 border border-[#CBD5E1]">
         <button
           onClick={() => setActiveTab('news')}
           className={`px-4 py-2 text-xs font-semibold rounded-sm transition-colors cursor-pointer ${
             activeTab === 'news'
-              ? 'bg-emerald-900 text-white shadow-xs'
-              : 'text-stone-700 hover:text-stone-950 hover:bg-stone-200'
+              ? 'bg-[#20216B] text-[#FFF000] font-bold shadow-xs'
+              : 'text-[#1E293B] hover:text-stone-950 hover:bg-[#E2E8F0]'
           }`}
         >
           Institutional News
@@ -120,8 +120,8 @@ export const MediaView: React.FC<MediaViewProps> = ({
           onClick={() => setActiveTab('gallery')}
           className={`px-4 py-2 text-xs font-semibold rounded-sm transition-colors cursor-pointer ${
             activeTab === 'gallery'
-              ? 'bg-emerald-900 text-white shadow-xs'
-              : 'text-stone-700 hover:text-stone-950 hover:bg-stone-200'
+              ? 'bg-[#20216B] text-[#FFF000] font-bold shadow-xs'
+              : 'text-[#1E293B] hover:text-stone-950 hover:bg-[#E2E8F0]'
           }`}
         >
           Campus Gallery
@@ -130,8 +130,8 @@ export const MediaView: React.FC<MediaViewProps> = ({
           onClick={() => setActiveTab('downloads')}
           className={`px-4 py-2 text-xs font-semibold rounded-sm transition-colors cursor-pointer ${
             activeTab === 'downloads'
-              ? 'bg-emerald-900 text-white shadow-xs'
-              : 'text-stone-700 hover:text-stone-950 hover:bg-stone-200'
+              ? 'bg-[#20216B] text-[#FFF000] font-bold shadow-xs'
+              : 'text-[#1E293B] hover:text-stone-950 hover:bg-[#E2E8F0]'
           }`}
         >
           Official Downloads Repository
@@ -145,10 +145,10 @@ export const MediaView: React.FC<MediaViewProps> = ({
             {NEWS_DATA.map((item) => (
               <div
                 key={item.id}
-                className="bg-white border border-stone-200 rounded-lg p-6 space-y-3 hover:border-emerald-800 transition-colors"
+                className="bg-white border border-[#CBD5E1] rounded-lg p-6 space-y-3 hover:border-[#292A86] transition-colors"
               >
-                <div className="flex items-center gap-2 text-xs text-stone-500 font-medium">
-                  <span className="font-semibold text-emerald-900">{item.category}</span>
+                <div className="flex items-center gap-2 text-xs text-[#475569] font-medium">
+                  <span className="font-semibold text-[#20216B]">{item.category}</span>
                   <span>·</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-stone-400" />
@@ -156,16 +156,16 @@ export const MediaView: React.FC<MediaViewProps> = ({
                   </span>
                 </div>
 
-                <h2 className="font-editorial text-lg sm:text-xl font-bold text-stone-900 leading-snug">
+                <h2 className="font-editorial text-lg sm:text-xl font-bold text-[#0F1035] leading-snug">
                   {item.title}
                 </h2>
 
-                <p className="text-xs sm:text-sm text-stone-700 font-prose-serif leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#1E293B] font-prose-serif leading-relaxed">
                   {item.content}
                 </p>
 
-                <div className="text-[11px] text-stone-500 pt-2 border-t border-stone-100">
-                  Published by: Office of Institutional Public Relations · DARE ARQAM
+                <div className="text-[11px] text-[#475569] pt-2 border-t border-stone-100">
+                  Published by: Office of Institutional Public Relations · DAR - E - ARQAM
                 </div>
               </div>
             ))}
@@ -177,15 +177,15 @@ export const MediaView: React.FC<MediaViewProps> = ({
       {activeTab === 'gallery' && (
         <div className="space-y-6">
           {/* Gallery Category Filter (Zero-Pill discipline) */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-stone-100 rounded-md border border-stone-200">
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#EEF2F8] rounded-md border border-[#CBD5E1]">
             {galleryCategories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setGalleryFilter(cat)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-colors cursor-pointer ${
                   galleryFilter === cat
-                    ? 'bg-emerald-900 text-white font-semibold shadow-xs'
-                    : 'text-stone-700 hover:text-stone-900 hover:bg-stone-200'
+                    ? 'bg-[#20216B] text-white font-semibold shadow-xs'
+                    : 'text-[#1E293B] hover:text-[#0F1035] hover:bg-[#E2E8F0]'
                 }`}
               >
                 {cat}
@@ -198,9 +198,9 @@ export const MediaView: React.FC<MediaViewProps> = ({
             {filteredGallery.map((gal) => (
               <div
                 key={gal.id}
-                className="bg-white border border-stone-200 rounded-lg overflow-hidden shadow-2xs group hover:border-emerald-800 transition-colors"
+                className="bg-white border border-[#CBD5E1] rounded-lg overflow-hidden shadow-2xs group hover:border-[#292A86] transition-colors"
               >
-                <div className="relative h-48 bg-stone-100 overflow-hidden">
+                <div className="relative h-48 bg-[#EEF2F8] overflow-hidden">
                   <img
                     src={gal.image}
                     alt={gal.title}
@@ -213,13 +213,13 @@ export const MediaView: React.FC<MediaViewProps> = ({
                 </div>
 
                 <div className="p-4 space-y-1.5">
-                  <div className="text-[11px] text-stone-500 font-medium">
+                  <div className="text-[11px] text-[#475569] font-medium">
                     {gal.date}
                   </div>
-                  <h3 className="font-editorial text-sm sm:text-base font-bold text-stone-900 leading-snug">
+                  <h3 className="font-editorial text-sm sm:text-base font-bold text-[#0F1035] leading-snug">
                     {gal.title}
                   </h3>
-                  <p className="text-xs text-stone-600 font-prose-serif leading-relaxed line-clamp-2">
+                  <p className="text-xs text-[#334155] font-prose-serif leading-relaxed line-clamp-2">
                     {gal.description}
                   </p>
                 </div>
@@ -233,7 +233,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
       {activeTab === 'downloads' && (
         <div className="space-y-6">
           {/* Search bar */}
-          <div className="bg-white border border-stone-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white border border-[#CBD5E1] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="relative sm:w-80">
               <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -241,35 +241,35 @@ export const MediaView: React.FC<MediaViewProps> = ({
                 placeholder="Search download files, forms, rules..."
                 value={downloadSearch}
                 onChange={(e) => setDownloadSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs border border-stone-300 rounded-md bg-stone-50"
+                className="w-full pl-9 pr-3 py-1.5 text-xs border border-[#94A3B8] rounded-md bg-[#F8FAFC]"
               />
             </div>
-            <div className="text-xs text-stone-500">
+            <div className="text-xs text-[#475569]">
               Showing {filteredDownloads.length} authorized institutional documents
             </div>
           </div>
 
           {/* Document Rows */}
-          <div className="bg-white border border-stone-200 rounded-lg divide-y divide-stone-200 shadow-2xs">
+          <div className="bg-white border border-[#CBD5E1] rounded-lg divide-y divide-stone-200 shadow-2xs">
             {filteredDownloads.map((doc) => (
               <div
                 key={doc.id}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-stone-50/60 transition-colors"
+                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#F8FAFC]/60 transition-colors"
               >
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-stone-500">
-                    <span className="font-semibold text-emerald-900">{doc.category}</span>
+                  <div className="flex items-center gap-2 text-xs text-[#475569]">
+                    <span className="font-semibold text-[#20216B]">{doc.category}</span>
                     <span>·</span>
                     <span className="font-mono text-[11px]">Ref: {doc.refNo}</span>
                     <span>·</span>
                     <span>{doc.date}</span>
                   </div>
 
-                  <h3 className="text-sm font-bold text-stone-900">
+                  <h3 className="text-sm font-bold text-[#0F1035]">
                     {doc.title}
                   </h3>
 
-                  <div className="text-[11px] text-stone-500">
+                  <div className="text-[11px] text-[#475569]">
                     Format: {doc.fileType} Document · File Size: {doc.fileSize} · Verified Digitally
                   </div>
                 </div>
@@ -277,7 +277,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
                 <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                   <button
                     onClick={() => alert(`Simulated downloading: ${doc.title}`)}
-                    className="px-4 py-2 text-xs font-semibold text-white bg-emerald-900 hover:bg-emerald-800 rounded-md transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold text-white bg-[#20216B] hover:bg-[#292A86] rounded-md transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download</span>
@@ -287,8 +287,8 @@ export const MediaView: React.FC<MediaViewProps> = ({
             ))}
           </div>
 
-          <div className="p-4 bg-stone-100 border border-stone-200 rounded-md text-xs text-stone-600 font-prose-serif leading-relaxed">
-            <strong>Authenticity Note:</strong> Forms downloaded from this portal are official instruments of DARE ARQAM. Any alterations made to official circulars or forms void their institutional validity.
+          <div className="p-4 bg-[#EEF2F8] border border-[#CBD5E1] rounded-md text-xs text-[#334155] font-prose-serif leading-relaxed">
+            <strong>Authenticity Note:</strong> Forms downloaded from this portal are official instruments of DAR - E - ARQAM. Any alterations made to official circulars or forms void their institutional validity.
           </div>
         </div>
       )}

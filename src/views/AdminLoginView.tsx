@@ -49,7 +49,6 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
 
       if (result.success) {
         onLoginSuccess();
-        onNavigate('admin-dashboard');
       } else {
         setErrorMsg(result.message);
       }
@@ -60,7 +59,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
   };
 
   const handleFillDemoCreds = () => {
-    setEmail('Darearqam@mardan.com');
+    setEmail('darearqam@mardan.com');
     setPassword('Hasnainqadir8696');
     setErrorMsg('');
     setAutoFilled(true);
@@ -68,25 +67,25 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 sm:px-6 bg-stone-900 text-stone-100">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 sm:px-6 bg-[#F8FAFC] text-[#1E204A]">
       <div className="w-full max-w-md space-y-6">
         {/* Directorate Card Container */}
-        <div className="bg-stone-950 border-2 border-emerald-700/60 rounded-xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-          {/* Subtle Institutional Top Accent Strip */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r from-emerald-600 via-amber-500 to-emerald-700" />
+        <div className="bg-white border-2 border-[#20216B] rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+          {/* Institutional Brand Top Accent Strip */}
+          <div className="brand-gradient-line absolute top-0 left-0 right-0" />
 
           {/* Header */}
-          <div className="text-center space-y-3 pb-6 border-b border-stone-800">
-            <Emblem size="lg" className="mx-auto ring-4 ring-emerald-950/80 shadow-md" />
+          <div className="text-center space-y-3 pb-6 border-b border-slate-200 mt-2">
+            <Emblem size="lg" className="mx-auto shadow-md" />
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-bold mb-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono tracking-widest uppercase bg-[#20216B] text-[#FFF000] border border-[#F5D900]/50 font-bold mb-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#FFF000]" />
                 <span>DIRECTORATE ADMINISTRATION</span>
               </div>
-              <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-[#1E204A] tracking-tight">
                 Executive Admin Login
               </h1>
-              <p className="text-xs text-stone-400 mt-1 font-prose-serif">
+              <p className="text-xs text-slate-500 mt-1 font-prose-serif">
                 Central Institutional Directorate Management Console
               </p>
             </div>
@@ -94,9 +93,9 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
 
           {/* Error Banner */}
           {errorMsg && (
-            <div className="mt-4 p-3 bg-red-950/80 border border-red-800 text-red-200 rounded-lg text-xs flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <span className="leading-snug">{errorMsg}</span>
+            <div className="mt-4 p-3 bg-[#FEE2E2] border border-[#DC2626] text-[#DC2626] rounded-lg text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-[#DC2626] shrink-0 mt-0.5" />
+              <span className="leading-snug font-medium">{errorMsg}</span>
             </div>
           )}
 
@@ -105,12 +104,12 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
             <div>
               <label 
                 htmlFor="admin-email" 
-                className="block text-xs font-semibold text-stone-300 uppercase tracking-wider mb-1.5"
+                className="block text-xs font-bold text-[#20216B] uppercase tracking-wider mb-1.5"
               >
                 Admin Email / Gmail
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   id="admin-email"
                   type="email"
@@ -118,7 +117,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
                   placeholder="Darearqam@mardan.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-stone-900 text-white placeholder-stone-600 font-mono"
+                  className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#20216B] focus:border-[#20216B] bg-white text-[#1E204A] placeholder-slate-400 font-mono"
                   autoComplete="username"
                 />
               </div>
@@ -128,14 +127,14 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
               <div className="flex items-center justify-between mb-1.5">
                 <label 
                   htmlFor="admin-password" 
-                  className="block text-xs font-semibold text-stone-300 uppercase tracking-wider"
+                  className="block text-xs font-bold text-[#20216B] uppercase tracking-wider"
                 >
                   Admin Password
                 </label>
-                <span className="text-[11px] font-mono text-emerald-400">Secure Access</span>
+                <span className="text-[11px] font-mono text-[#20216B] font-semibold">Secure Access</span>
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   id="admin-password"
                   type={showPassword ? 'text' : 'password'}
@@ -143,13 +142,13 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
                   placeholder="Enter administrator password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-10 py-2.5 text-xs sm:text-sm border border-stone-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-stone-900 text-white placeholder-stone-600"
+                  className="w-full pl-9 pr-10 py-2.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#20216B] focus:border-[#20216B] bg-white text-[#1E204A] placeholder-slate-400"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300 cursor-pointer p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -157,18 +156,18 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
               </div>
             </div>
 
-            {/* Quick Fill Credentials Shortcut for convenience */}
+            {/* Quick Fill Credentials Shortcut */}
             <div className="pt-1 flex items-center justify-between">
               <button
                 type="button"
                 onClick={handleFillDemoCreds}
-                className="text-[11px] text-amber-400/90 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer font-mono"
+                className="text-[11px] text-[#20216B] hover:text-[#292A86] hover:underline flex items-center gap-1 cursor-pointer font-bold"
               >
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-3 h-3 text-[#F5D900]" />
                 <span>Fill Designated Admin Credentials</span>
               </button>
               {autoFilled && (
-                <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
+                <span className="text-[10px] text-[#16A34A] flex items-center gap-1 font-bold">
                   <CheckCircle2 className="w-3 h-3" /> Filled
                 </span>
               )}
@@ -179,15 +178,15 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4 text-xs sm:text-sm font-semibold text-white bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-400 rounded-lg transition-all shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                className="w-full py-3 px-4 text-xs sm:text-sm font-bold text-white bg-[#20216B] hover:bg-[#292A86] active:bg-[#1A1B57] focus:outline-hidden focus:ring-2 focus:ring-[#FFF000] rounded-lg transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 active:scale-98"
               >
                 {isLoading ? (
                   <span>Authenticating Directorate...</span>
                 ) : (
                   <>
-                    <KeyRound className="w-4 h-4" />
+                    <KeyRound className="w-4 h-4 text-[#FFF000]" />
                     <span>Login to Admin Panel</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4 text-[#FFF000]" />
                   </>
                 )}
               </button>
@@ -195,11 +194,11 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
           </form>
 
           {/* Quick return back to school public site */}
-          <div className="mt-6 pt-4 border-t border-stone-800 text-center">
+          <div className="mt-6 pt-4 border-t border-slate-200 text-center">
             <button
               type="button"
               onClick={() => onNavigate('home')}
-              className="text-xs text-stone-400 hover:text-white flex items-center gap-1.5 mx-auto transition-colors cursor-pointer py-1"
+              className="text-xs text-slate-600 hover:text-[#20216B] flex items-center gap-1.5 mx-auto transition-colors cursor-pointer py-1 font-medium"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Return to Public School Website</span>
@@ -208,7 +207,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
         </div>
 
         {/* Security watermark */}
-        <div className="text-center text-[11px] text-stone-500 font-mono">
+        <div className="text-center text-[11px] text-slate-500 font-mono">
           DIRECTORATE CENTRAL REPOSITORY · RESTRICTED EXECUTIVE ACCESS ONLY
         </div>
       </div>
