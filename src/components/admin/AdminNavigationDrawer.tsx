@@ -219,7 +219,7 @@ export const AdminNavigationDrawer: React.FC<AdminNavigationDrawerProps> = ({
             </button>
           </div>
 
-          {/* 1. WEBSITE CUSTOMIZATION & MANAGEMENT (Primary Customization Group) */}
+          {/* 1. MANAGEMENT (Website Customization & Content Control) */}
           <div className="pt-3 space-y-1">
             <button
               type="button"
@@ -228,14 +228,14 @@ export const AdminNavigationDrawer: React.FC<AdminNavigationDrawerProps> = ({
             >
               <span className="flex items-center gap-2">
                 <Globe className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>WEBSITE MANAGEMENT & CUSTOMIZATION</span>
+                <span>MANAGEMENT</span>
               </span>
               {openCategories.website ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5 text-stone-400" />}
             </button>
 
             {openCategories.website && (
               <div className="space-y-0.5 pl-2">
-                {/* Customize Logo & Branding */}
+                {/* Customize Logo */}
                 <button
                   type="button"
                   onClick={() => handleItemClick('branding')}
@@ -246,10 +246,10 @@ export const AdminNavigationDrawer: React.FC<AdminNavigationDrawerProps> = ({
                   }`}
                 >
                   <ImageIcon className={`w-3.5 h-3.5 ${activeSection === 'branding' ? 'text-[#FFF000]' : 'text-[#D4AF37]'}`} />
-                  <span>Customize Logo & Branding</span>
+                  <span>Customize Logo</span>
                 </button>
 
-                {/* Customize Principal Picture */}
+                {/* Update Principal Message */}
                 <button
                   type="button"
                   onClick={() => handleItemClick('leadership')}
@@ -260,7 +260,7 @@ export const AdminNavigationDrawer: React.FC<AdminNavigationDrawerProps> = ({
                   }`}
                 >
                   <UserCheck className={`w-3.5 h-3.5 ${activeSection === 'leadership' ? 'text-[#FFF000]' : 'text-[#D4AF37]'}`} />
-                  <span>Customize Principal Picture & Message</span>
+                  <span>Update Principal Message</span>
                 </button>
 
                 {/* Social Media Management */}
@@ -275,6 +275,20 @@ export const AdminNavigationDrawer: React.FC<AdminNavigationDrawerProps> = ({
                 >
                   <Globe className={`w-3.5 h-3.5 ${activeSection === 'social' ? 'text-[#FFF000]' : 'text-[#D4AF37]'}`} />
                   <span>Social Media Management</span>
+                </button>
+
+                {/* Homepage Gallery */}
+                <button
+                  type="button"
+                  onClick={() => handleItemClick('gallery')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-colors cursor-pointer text-left ${
+                    activeSection === 'gallery'
+                      ? 'bg-[#20216B] text-[#FFF000] font-semibold border-l-2 border-[#D4AF37] shadow-xs'
+                      : 'text-stone-300 hover:bg-[#161B30] hover:text-white'
+                  }`}
+                >
+                  <ImageIcon className={`w-3.5 h-3.5 ${activeSection === 'gallery' ? 'text-[#FFF000]' : 'text-[#D4AF37]'}`} />
+                  <span>Homepage Gallery</span>
                 </button>
 
                 {/* Notices & Circulars */}

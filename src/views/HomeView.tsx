@@ -1,6 +1,7 @@
 import React from 'react';
 import { PageId } from '../types';
 import { Emblem } from '../components/Emblem';
+import { HomepageGallery } from '../components/HomepageGallery';
 import { 
   useBranding, 
   DEFAULT_CAMPUS_BANNER, 
@@ -398,6 +399,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
           </div>
         </div>
       </section>
+
+      {/* 5. PREMIUM HORIZONTAL IMAGE SLIDER / GALLERY SECTION */}
+      <HomepageGallery />
     </div>
   );
 };

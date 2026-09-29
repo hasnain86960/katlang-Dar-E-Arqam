@@ -2,7 +2,8 @@ import {
   doc, 
   getDoc, 
   setDoc, 
-  updateDoc 
+  updateDoc,
+  onSnapshot 
 } from 'firebase/firestore';
 import { 
   createUserWithEmailAndPassword, 
@@ -16,7 +17,7 @@ import {
   UserCredential 
 } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { Notice, StudentResult, AcademicEvent } from '../types';
+import { Notice, StudentResult, AcademicEvent, GallerySlide, GallerySettings } from '../types';
 import { NOTICES_DATA, RESULTS_DATABASE, EVENTS_DATA } from '../data/mockData';
 
 // ----------------------------------------------------
@@ -66,6 +67,52 @@ export const DEFAULT_SOCIAL_MEDIA_STATE: SocialMediaState = {
   },
 };
 
+export const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
+  autoSlideInterval: 4000, // 4 seconds default
+  pauseOnHover: true,
+  loop: true,
+  showNavigation: true,
+  showIndicators: true,
+};
+
+export const DEFAULT_GALLERY_SLIDES: GallerySlide[] = [
+  {
+    id: 'slide-campus-main',
+    url: '/src/assets/images/campus_main_building_1790434904126.jpg',
+    title: 'Main Academic Quadrangle & Administrative Directorate',
+    caption: 'State-of-the-art educational infrastructure designed for scholastic discipline, character formation, and holistic student development.',
+    category: 'Campus Infrastructure',
+    order: 1,
+    enabled: true,
+    createdAt: '2026-03-01T08:00:00.000Z'
+  },
+  {
+    id: 'slide-science-lab',
+    url: '/src/assets/images/campus_science_lab_1790434931736.jpg',
+    title: 'Advanced Science & Practical Research Laboratories',
+    caption: 'Fully equipped physics, chemistry, and biological experimental facilities meeting international curricular benchmarks.',
+    category: 'Academic Facilities',
+    order: 2,
+    enabled: true,
+    createdAt: '2026-03-02T08:00:00.000Z'
+  },
+  {
+    id: 'slide-library-hall',
+    url: '/src/assets/images/campus_library_hall_1790434944628.jpg',
+    title: 'Central Reference Library & Independent Research Hall',
+    caption: 'Over 10,000 reference volumes, academic journals, and modern digital catalogs fostering critical inquiry.',
+    category: 'Scholarly Resources',
+    order: 3,
+    enabled: true,
+    createdAt: '2026-03-03T08:00:00.000Z'
+  }
+];
+
+export interface HomepageGalleryState {
+  slides: GallerySlide[];
+  settings: GallerySettings;
+}
+
 export interface SingleAppState {
   notices?: Notice[];
   events?: AcademicEvent[];
@@ -77,6 +124,7 @@ export interface SingleAppState {
   };
   leadership?: LeadershipState;
   socialMedia?: SocialMediaState;
+  homepageGallery?: HomepageGalleryState;
   sitemapXml?: string;
   sitemapGeneratedAt?: string;
   updatedAt?: string;
@@ -113,6 +161,41 @@ export async function fetchSingleAppState(): Promise<SingleAppState | null> {
   }
 }
 
+/**
+ * Realtime listener for Firestore Single Document State
+ * Automatically notifies subscribers whenever any website data updates in Firestore
+ */
+export function subscribeSingleAppState(callback: (state: SingleAppState | null) => void): () => void {
+  try {
+    const unsubscribe = onSnapshot(
+      doc(db, 'settings', 'single_app_state'),
+      (snap) => {
+        if (snap.exists()) {
+          const remoteData = snap.data() as SingleAppState;
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(LOCAL_STORAGE_APP_STATE_KEY, JSON.stringify(remoteData));
+            } catch {}
+          }
+          callback(remoteData);
+        } else {
+          // If remote doesn't exist, read local
+          fetchSingleAppState().then(callback);
+        }
+      },
+      (error) => {
+        console.debug('Firestore onSnapshot subscription fallback:', error);
+        fetchSingleAppState().then(callback);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.debug('Failed to establish Firestore realtime snapshot listener:', err);
+    fetchSingleAppState().then(callback);
+    return () => {};
+  }
+}
+
 export async function saveSingleAppState(partialState: Partial<SingleAppState>): Promise<void> {
   if (typeof window !== 'undefined') {
     try {
@@ -130,6 +213,59 @@ export async function saveSingleAppState(partialState: Partial<SingleAppState>):
     }, { merge: true });
   } catch {}
 }
+
+// ----------------------------------------------------
+// HOMEPAGE GALLERY SERVICE
+// ----------------------------------------------------
+
+export async function fetchHomepageGallery(): Promise<HomepageGalleryState> {
+  try {
+    const state = await fetchSingleAppState();
+    if (state?.homepageGallery && Array.isArray(state.homepageGallery.slides)) {
+      return {
+        slides: state.homepageGallery.slides,
+        settings: {
+          ...DEFAULT_GALLERY_SETTINGS,
+          ...(state.homepageGallery.settings || {})
+        }
+      };
+    }
+  } catch (err) {
+    console.warn('Error fetching homepage gallery:', err);
+  }
+  return {
+    slides: DEFAULT_GALLERY_SLIDES,
+    settings: DEFAULT_GALLERY_SETTINGS
+  };
+}
+
+export async function saveHomepageGallery(galleryState: HomepageGalleryState): Promise<void> {
+  const currentState = await fetchSingleAppState() || {};
+  await saveSingleAppState({
+    ...currentState,
+    homepageGallery: galleryState,
+  });
+}
+
+export function subscribeHomepageGallery(callback: (gallery: HomepageGalleryState) => void): () => void {
+  return subscribeSingleAppState((state) => {
+    if (state?.homepageGallery && Array.isArray(state.homepageGallery.slides)) {
+      callback({
+        slides: state.homepageGallery.slides,
+        settings: {
+          ...DEFAULT_GALLERY_SETTINGS,
+          ...(state.homepageGallery.settings || {})
+        }
+      });
+    } else {
+      callback({
+        slides: DEFAULT_GALLERY_SLIDES,
+        settings: DEFAULT_GALLERY_SETTINGS
+      });
+    }
+  });
+}
+
 
 // ----------------------------------------------------
 // 1. NOTICES SERVICE (Using Single Document)

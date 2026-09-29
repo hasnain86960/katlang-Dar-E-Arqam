@@ -110,3 +110,22 @@ export interface FacultyMember {
   qualification: string;
   experience: string;
 }
+
+export interface GallerySlide {
+  id: string;
+  url: string;
+  title?: string;
+  caption?: string;
+  category?: string;
+  order: number;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface GallerySettings {
+  autoSlideInterval: number; // in milliseconds (e.g. 3000, 4000, 5000, 7000, 10000)
+  pauseOnHover: boolean;
+  loop: boolean;
+  showNavigation: boolean;
+  showIndicators: boolean;
+}

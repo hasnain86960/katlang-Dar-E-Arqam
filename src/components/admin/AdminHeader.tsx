@@ -13,7 +13,8 @@ import {
   Clock, 
   ChevronDown,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import { PageId } from '../../types';
 
@@ -27,6 +28,8 @@ interface AdminHeaderProps {
   onOpenSecurity: () => void;
   unreadCount?: number;
   onOpenNotifications?: () => void;
+  canGoBack?: boolean;
+  onGoBack?: () => void;
 }
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -38,6 +41,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onLogout,
   onOpenSecurity,
   unreadCount = 3,
+  canGoBack = false,
+  onGoBack,
 }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -76,6 +81,20 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               <Menu className="w-5 h-5" />
             )}
           </button>
+
+          {/* Quick Back Button when in a sub-section */}
+          {canGoBack && onGoBack && (
+            <button
+              type="button"
+              onClick={onGoBack}
+              aria-label="Go back to previous section"
+              title="Go back to previous section"
+              className="px-2.5 py-1.5 text-xs font-semibold text-stone-200 hover:text-[#FFF000] bg-[#161B30] hover:bg-[#1E2540] border border-[#263352] hover:border-[#D4AF37]/60 rounded-lg transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs active:scale-95"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#FFF000]" />
+              <span className="hidden xs:inline sm:inline">Back</span>
+            </button>
+          )}
 
           {/* DARE ARQAM Branding / Logo */}
           <div className="flex items-center gap-2.5 shrink-0">

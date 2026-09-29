@@ -42,7 +42,8 @@ import {
   Camera,
   User,
   Menu,
-  LayoutDashboard
+  LayoutDashboard,
+  ArrowLeft
 } from 'lucide-react';
 import { AdminHeader } from '../components/admin/AdminHeader';
 import { AdminNavigationDrawer, AdminSectionKey } from '../components/admin/AdminNavigationDrawer';
@@ -68,13 +69,14 @@ import {
 } from '../services/adminService';
 import { uploadToCloudinary } from '../services/cloudinaryService';
 import { LogoCustomizerModal } from '../components/admin/LogoCustomizerModal';
+import { HomepageGalleryManager } from '../components/admin/HomepageGalleryManager';
 
 interface AdminDashboardViewProps {
   onNavigate: (page: PageId) => void;
   onLogout: () => void;
 }
 
-type AdminTab = 'overview' | 'branding' | 'leadership' | 'social' | 'notices' | 'results' | 'admissions' | 'inquiries' | 'security';
+type AdminTab = 'overview' | 'branding' | 'leadership' | 'social' | 'gallery' | 'notices' | 'results' | 'admissions' | 'inquiries' | 'security';
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNavigate, onLogout }) => {
   const { 
@@ -100,8 +102,27 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
   } = useBranding();
   
   const [currentTab, setCurrentTab] = useState<AdminTab>('branding');
+  const [tabHistory, setTabHistory] = useState<AdminTab[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [adminUser, setAdminUser] = useState(() => getCurrentAdminSession());
+
+  const navigateToTab = (newTab: AdminTab) => {
+    if (newTab === currentTab) return;
+    setTabHistory(prev => [...prev, currentTab]);
+    setCurrentTab(newTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleGoBack = () => {
+    if (tabHistory.length > 0) {
+      const prevTab = tabHistory[tabHistory.length - 1];
+      setTabHistory(prev => prev.slice(0, -1));
+      setCurrentTab(prevTab);
+    } else {
+      setCurrentTab('overview');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const getSectionTitle = (tab: AdminTab): string => {
     switch (tab) {
@@ -111,6 +132,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
         return 'Principal Custom Photo & Message';
       case 'social':
         return 'Social Media Management';
+      case 'gallery':
+        return 'Homepage Gallery Showcase';
       case 'notices':
         return 'Notices & Circulars';
       case 'results':
@@ -128,32 +151,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
   };
 
   const handleSelectSection = (section: AdminSectionKey) => {
+    let targetTab: AdminTab = 'overview';
     if (section === 'dashboard') {
-      setCurrentTab('overview');
+      targetTab = 'overview';
     } else if (
       section === 'branding' || 
       section === 'leadership' || 
       section === 'social' || 
+      section === 'gallery' ||
       section === 'notices' || 
       section === 'results' || 
       section === 'admissions' || 
       section === 'security'
     ) {
-      setCurrentTab(section);
+      targetTab = section;
     } else if (section === 'admissions-pending' || section === 'admissions-approved' || section === 'admissions-rejected') {
-      setCurrentTab('admissions');
+      targetTab = 'admissions';
     } else if (section === 'contact-info') {
-      setCurrentTab('inquiries');
+      targetTab = 'inquiries';
     } else if (section === 'students' || section === 'student-profiles' || section === 'attendance' || section === 'academic-records') {
-      setCurrentTab('results');
-    } else if (section === 'news' || section === 'events' || section === 'gallery' || section === 'downloads' || section === 'academic-info' || section === 'about-info') {
-      setCurrentTab('notices');
+      targetTab = 'results';
+    } else if (section === 'news' || section === 'events' || section === 'downloads' || section === 'academic-info' || section === 'about-info') {
+      targetTab = 'notices';
     } else if (section === 'social-youtube' || section === 'social-facebook' || section === 'social-tiktok' || section === 'social-whatsapp') {
-      setCurrentTab('social');
+      targetTab = 'social';
     } else if (section === 'admin-profile' || section === 'settings' || section === 'audit-log') {
-      setCurrentTab('security');
+      targetTab = 'security';
     } else {
-      setCurrentTab('overview');
+      targetTab = 'overview';
+    }
+
+    if (targetTab !== currentTab) {
+      setTabHistory(prev => [...prev, currentTab]);
+      setCurrentTab(targetTab);
     }
     setIsDrawerOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -776,7 +806,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
 
   return (
     <div className="min-h-screen bg-[#0A0D18] text-stone-100 flex flex-col font-sans">
-      {/* 1. Professional Admin Header with Left Hamburger Button */}
+      {/* 1. Professional Admin Header with Left Hamburger Button & Back Button */}
       <AdminHeader
         currentSectionTitle={getSectionTitle(currentTab)}
         adminUser={adminUser}
@@ -784,8 +814,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
         onToggleDrawer={() => setIsDrawerOpen(!isDrawerOpen)}
         onNavigatePublic={(page) => onNavigate(page)}
         onLogout={handleAdminLogout}
-        onOpenSecurity={() => setCurrentTab('security')}
+        onOpenSecurity={() => navigateToTab('security')}
         unreadCount={inquiries.filter(i => i.status === 'Unread').length}
+        canGoBack={currentTab !== 'overview'}
+        onGoBack={handleGoBack}
       />
 
       {/* 2. Slide-out Navigation Drawer from the LEFT */}
@@ -841,7 +873,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
             {currentTab !== 'overview' && (
               <button
                 type="button"
-                onClick={() => setCurrentTab('overview')}
+                onClick={() => navigateToTab('overview')}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-stone-300 hover:text-white bg-[#182038] hover:bg-[#202946] border border-[#2A375E] transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
               >
                 <LayoutDashboard className="w-3.5 h-3.5 text-[#D4AF37]" />
@@ -904,7 +936,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{notices.length}</div>
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('notices')}
+                  onClick={() => navigateToTab('notices')}
                   className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
                 >
                   Manage Notices & Circulars →
@@ -919,7 +951,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{resultsList.length}</div>
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('results')}
+                  onClick={() => navigateToTab('results')}
                   className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
                 >
                   Manage Exam Results →
@@ -934,7 +966,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{admissions.length}</div>
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('admissions')}
+                  onClick={() => navigateToTab('admissions')}
                   className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
                 >
                   Review Applications →
@@ -949,7 +981,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 <div className="text-2xl sm:text-3xl font-bold text-white mt-2">{inquiries.length}</div>
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('inquiries')}
+                  onClick={() => navigateToTab('inquiries')}
                   className="text-[11px] text-[#FFF000] hover:underline mt-2 text-left cursor-pointer"
                 >
                   View Inquiries & Messages →
@@ -971,7 +1003,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 {/* 1. Custom Logo & Branding */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('branding')}
+                  onClick={() => navigateToTab('branding')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -988,7 +1020,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 {/* 2. Principal Custom Photo */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('leadership')}
+                  onClick={() => navigateToTab('leadership')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -1005,7 +1037,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 {/* 3. Social Media Management */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('social')}
+                  onClick={() => navigateToTab('social')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -1019,10 +1051,27 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                   </p>
                 </button>
 
-                {/* 4. Notices & Circulars */}
+                {/* 4. Homepage Gallery Showcase */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('notices')}
+                  onClick={() => navigateToTab('gallery')}
+                  className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors">
+                    Homepage Gallery Showcase
+                  </h4>
+                  <p className="text-xs text-stone-400 mt-1 font-prose-serif line-clamp-2">
+                    Upload unlimited photos, reorder horizontal slides, and adjust carousel intervals.
+                  </p>
+                </button>
+
+                {/* 5. Notices & Circulars */}
+                <button
+                  type="button"
+                  onClick={() => navigateToTab('notices')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -1039,7 +1088,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 {/* 5. Examination Results */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('results')}
+                  onClick={() => navigateToTab('results')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -1056,7 +1105,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 {/* 6. Admissions Applications */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('admissions')}
+                  onClick={() => navigateToTab('admissions')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -1073,7 +1122,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 {/* 7. Public Inquiries */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('inquiries')}
+                  onClick={() => navigateToTab('inquiries')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -1090,7 +1139,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 {/* 8. Security & Password */}
                 <button
                   type="button"
-                  onClick={() => setCurrentTab('security')}
+                  onClick={() => navigateToTab('security')}
                   className="p-4 rounded-xl bg-[#12172B] hover:bg-[#182038] border border-[#202946] hover:border-[#D4AF37]/60 text-left transition-all group cursor-pointer shadow-sm"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -2119,6 +2168,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
               </div>
             </div>
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: HOMEPAGE GALLERY SHOWCASE */}
+        {/* ========================================================================= */}
+        {currentTab === 'gallery' && (
+          <HomepageGalleryManager
+            onSuccessNotification={(msg) => showNotification('success', msg)}
+          />
         )}
 
         {/* ========================================================================= */}
