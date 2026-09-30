@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, initializeFirestore, Firestore, setLogLevel, memoryLocalCache } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Filter out internal Firestore transport reconnection logs in sandboxed iframe environments
@@ -49,6 +50,7 @@ try {
   firestoreDb = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 }
 export const db = firestoreDb;
+export const storage = getStorage(app);
 
 export enum OperationType {
   CREATE = 'create',

@@ -43,7 +43,9 @@ import {
   User,
   Menu,
   LayoutDashboard,
-  ArrowLeft
+  ArrowLeft,
+  GraduationCap,
+  IdCard
 } from 'lucide-react';
 import { AdminHeader } from '../components/admin/AdminHeader';
 import { AdminNavigationDrawer, AdminSectionKey } from '../components/admin/AdminNavigationDrawer';
@@ -70,13 +72,15 @@ import {
 import { uploadToCloudinary } from '../services/cloudinaryService';
 import { LogoCustomizerModal } from '../components/admin/LogoCustomizerModal';
 import { HomepageGalleryManager } from '../components/admin/HomepageGalleryManager';
+import { AdminClassManager } from '../components/admin/AdminClassManager';
+import { IdCardTemplateManager } from '../components/admin/IdCardTemplateManager';
 
 interface AdminDashboardViewProps {
   onNavigate: (page: PageId) => void;
   onLogout: () => void;
 }
 
-type AdminTab = 'overview' | 'branding' | 'leadership' | 'social' | 'gallery' | 'notices' | 'results' | 'admissions' | 'inquiries' | 'security';
+type AdminTab = 'overview' | 'classes' | 'id-card-template' | 'branding' | 'leadership' | 'social' | 'gallery' | 'notices' | 'results' | 'admissions' | 'inquiries' | 'security';
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNavigate, onLogout }) => {
   const { 
@@ -126,6 +130,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
 
   const getSectionTitle = (tab: AdminTab): string => {
     switch (tab) {
+      case 'classes':
+        return 'Class Management & Enrolled Students';
+      case 'id-card-template':
+        return 'ID Card Template Studio & Mapping';
       case 'branding':
         return 'Custom Logo & Branding';
       case 'leadership':
@@ -155,6 +163,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
     if (section === 'dashboard') {
       targetTab = 'overview';
     } else if (
+      section === 'classes' ||
+      section === 'students' ||
+      section === 'student-profiles'
+    ) {
+      targetTab = 'classes';
+    } else if (section === 'id-card-template') {
+      targetTab = 'id-card-template';
+    } else if (
       section === 'branding' || 
       section === 'leadership' || 
       section === 'social' || 
@@ -169,8 +185,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
       targetTab = 'admissions';
     } else if (section === 'contact-info') {
       targetTab = 'inquiries';
-    } else if (section === 'students' || section === 'student-profiles' || section === 'attendance' || section === 'academic-records') {
-      targetTab = 'results';
+    } else if (section === 'attendance' || section === 'academic-records') {
+      targetTab = 'classes';
     } else if (section === 'news' || section === 'events' || section === 'downloads' || section === 'academic-info' || section === 'about-info') {
       targetTab = 'notices';
     } else if (section === 'social-youtube' || section === 'social-facebook' || section === 'social-tiktok' || section === 'social-whatsapp') {
@@ -999,7 +1015,51 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 <span className="text-xs text-stone-400">All 8 modules accessible in left menu</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {/* 0. Classes & Enrolled Students */}
+                <button
+                  type="button"
+                  onClick={() => navigateToTab('classes')}
+                  className="p-4 rounded-xl bg-[#141A35] hover:bg-[#1C254B] border-2 border-[#D4AF37]/50 hover:border-[#FFF000] text-left transition-all group cursor-pointer shadow-md"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <GraduationCap className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#FFF000] text-[#171852]">
+                      13 Classes
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors flex items-center gap-1.5">
+                    <span>Class Management & Students</span>
+                  </h4>
+                  <p className="text-xs text-stone-300 mt-1 font-prose-serif line-clamp-2">
+                    View students grouped automatically by class (Play Group to Class 10) with complete official digital ID Cards.
+                  </p>
+                </button>
+
+                {/* 0.1 ID Card Template Studio */}
+                <button
+                  type="button"
+                  onClick={() => navigateToTab('id-card-template')}
+                  className="p-4 rounded-xl bg-[#141A35] hover:bg-[#1C254B] border-2 border-[#D4AF37]/50 hover:border-[#FFF000] text-left transition-all group cursor-pointer shadow-md"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-[#20216B] text-[#FFF000] flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <IdCard className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#20216B] text-[#FFF000] border border-[#D4AF37]/50">
+                      Studio
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-[#FFF000] transition-colors flex items-center gap-1.5">
+                    <span>ID Card Template Studio</span>
+                  </h4>
+                  <p className="text-xs text-stone-300 mt-1 font-prose-serif line-clamp-2">
+                    Upload blank ID card templates and visually drag & drop student data fields with live student preview.
+                  </p>
+                </button>
+
                 {/* 1. Custom Logo & Branding */}
                 <button
                   type="button"
@@ -1155,6 +1215,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
               </div>
             </div>
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: CLASS MANAGEMENT & ENROLLED STUDENTS (13 OFFICIAL CLASSES) */}
+        {/* ========================================================================= */}
+        {currentTab === 'classes' && (
+          <AdminClassManager
+            onSuccessNotification={(msg) => showNotification('success', msg)}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: DYNAMIC ID CARD TEMPLATE STUDIO & FIELD MAPPING */}
+        {/* ========================================================================= */}
+        {currentTab === 'id-card-template' && (
+          <IdCardTemplateManager
+            onSuccessNotification={(msg) => showNotification('success', msg)}
+          />
         )}
 
         {/* ========================================================================= */}
@@ -1456,15 +1534,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                         <div className="absolute inset-0 bg-gradient-to-t from-[#171852] via-[#171852]/50 to-transparent" />
                       </div>
 
-                      {/* Center Overlapping Big Round Logo */}
+                      {/* Center Overlapping Big Round Logo (Sleek Ultra-Slim Outline) */}
                       <div className="-mt-14 flex justify-center relative z-10 mb-2">
-                        <div className="p-1 bg-[#171852] rounded-full shadow-2xl ring-2 ring-[#FFF000]/60">
-                          <div className="w-24 h-24 rounded-full overflow-hidden bg-white flex items-center justify-center shadow-inner">
+                        <div className="rounded-full shadow-2xl ring-1 ring-[#FFF000]/60 overflow-hidden">
+                          <div className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center">
                             {tempLogoUrl ? (
                               <img
                                 src={tempLogoUrl}
                                 alt="Big Round Logo Preview"
-                                className="w-full h-full object-contain p-1.5 select-none"
+                                className="w-full h-full object-contain select-none"
                               />
                             ) : (
                               <Emblem size="lg" className="!w-full !h-full" />

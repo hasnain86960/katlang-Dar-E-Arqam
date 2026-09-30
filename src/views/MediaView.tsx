@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { PageId } from '../types';
+import React, { useState, useEffect } from 'react';
+import { PageId, GallerySlide } from '../types';
 import { NEWS_DATA, DOWNLOADS_DATA } from '../data/mockData';
 import { 
   FileText, 
@@ -8,8 +8,19 @@ import {
   Calendar, 
   ArrowRight, 
   Search, 
-  ExternalLink 
+  ExternalLink,
+  Maximize2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
+import { LazyImage } from '../components/LazyImage';
+import { 
+  fetchHomepageGallery, 
+  subscribeHomepageGallery, 
+  DEFAULT_GALLERY_SLIDES 
+} from '../services/firebaseService';
 
 interface MediaViewProps {
   initialTab?: 'news' | 'gallery' | 'downloads';
@@ -23,15 +34,18 @@ export const MediaView: React.FC<MediaViewProps> = ({
   const [activeTab, setActiveTab] = useState<'news' | 'gallery' | 'downloads'>(initialTab);
   const [galleryFilter, setGalleryFilter] = useState<string>('All');
   const [downloadSearch, setDownloadSearch] = useState<string>('');
+  const [firebaseSlides, setFirebaseSlides] = useState<GallerySlide[]>(DEFAULT_GALLERY_SLIDES);
+  const [selectedLightboxIndex, setSelectedLightboxIndex] = useState<number | null>(null);
 
-  // Gallery items using verified generated assets
-  const galleryItems = [
+  // Default institutional showcase items
+  const defaultGalleryItems = [
     {
       id: 'gal-01',
       title: 'Main Academic Block & Central Quadrangle',
       category: 'Campus',
       date: 'March 2026',
       image: '/src/assets/images/campus_main_building_1790434904126.jpg',
+      thumbnailUrl: '',
       description: 'The administrative heart of DAR - E - ARQAM featuring the central assembly arena and academic chambers.',
     },
     {
@@ -40,6 +54,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
       category: 'Academic Activities',
       date: 'February 2026',
       image: '/src/assets/images/campus_science_lab_1790434931736.jpg',
+      thumbnailUrl: '',
       description: 'Fully equipped practical workstations designed in strict accordance with Board of Intermediate & Secondary Education specifications.',
     },
     {
@@ -48,6 +63,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
       category: 'Student Activities',
       date: 'January 2026',
       image: '/src/assets/images/campus_library_hall_1790434944628.jpg',
+      thumbnailUrl: '',
       description: 'Quiet scholarly environment offering access to thousands of educational volumes, encyclopedias, and reference journals.',
     },
     {
@@ -56,6 +72,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
       category: 'Campus',
       date: 'December 2025',
       image: '/src/assets/images/campus_main_building_1790434904126.jpg',
+      thumbnailUrl: '',
       description: 'Chambers dedicated to periodic board consultations and academic steering committees.',
     },
     {
@@ -64,6 +81,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
       category: 'Sports',
       date: 'November 2025',
       image: '/src/assets/images/campus_science_lab_1790434931736.jpg',
+      thumbnailUrl: '',
       description: 'Annual competitive athletic championship covering sprint relays, cricket, and physical drills.',
     },
     {
@@ -72,15 +90,49 @@ export const MediaView: React.FC<MediaViewProps> = ({
       category: 'Events',
       date: 'October 2025',
       image: '/src/assets/images/campus_library_hall_1790434944628.jpg',
+      thumbnailUrl: '',
       description: 'Scholarly presentations and Husn-e-Qirat competitions held in the central institutional auditorium.',
     }
   ];
 
-  const galleryCategories = ['All', 'Campus', 'Academic Activities', 'Events', 'Sports', 'Student Activities'];
+  // Subscribe to live Firebase Gallery slides
+  useEffect(() => {
+    fetchHomepageGallery().then(data => {
+      if (data.slides && data.slides.length > 0) {
+        setFirebaseSlides(data.slides);
+      }
+    });
 
-  const filteredGallery = galleryItems.filter(item => {
+    const unsub = subscribeHomepageGallery(data => {
+      if (data.slides && data.slides.length > 0) {
+        setFirebaseSlides(data.slides);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Map Firebase slides into unified gallery items
+  const liveFirebaseItems = firebaseSlides
+    .filter(s => s.enabled)
+    .map(s => ({
+      id: s.id,
+      title: s.title || 'Institutional Visual Exhibit',
+      category: s.category || 'Campus',
+      date: s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Verified Archive',
+      image: s.url,
+      thumbnailUrl: s.thumbnailUrl,
+      description: s.caption || 'State-of-the-art campus facilities and scholastic learning environments.',
+    }));
+
+  // Combined gallery items (Live Firebase items + Defaults if distinct)
+  const combinedGallery = liveFirebaseItems.length > 0 ? liveFirebaseItems : defaultGalleryItems;
+
+  const galleryCategories = ['All', 'Campus', 'Academic Activities', 'Events', 'Sports', 'Student Activities', 'Campus Infrastructure'];
+
+  const filteredGallery = combinedGallery.filter(item => {
     if (galleryFilter === 'All') return true;
-    return item.category === galleryFilter;
+    return item.category?.toLowerCase() === galleryFilter.toLowerCase();
   });
 
   const filteredDownloads = DOWNLOADS_DATA.filter(doc =>
@@ -124,7 +176,7 @@ export const MediaView: React.FC<MediaViewProps> = ({
               : 'text-[#1E293B] hover:text-stone-950 hover:bg-[#E2E8F0]'
           }`}
         >
-          Campus Gallery
+          Campus Gallery ({combinedGallery.length} Photos)
         </button>
         <button
           onClick={() => setActiveTab('downloads')}
@@ -173,10 +225,10 @@ export const MediaView: React.FC<MediaViewProps> = ({
         </div>
       )}
 
-      {/* 2. GALLERY TAB */}
+      {/* 2. GALLERY TAB with IntersectionObserver Lazy Loading */}
       {activeTab === 'gallery' && (
         <div className="space-y-6">
-          {/* Gallery Category Filter (Zero-Pill discipline) */}
+          {/* Gallery Category Filter */}
           <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#EEF2F8] rounded-md border border-[#CBD5E1]">
             {galleryCategories.map((cat) => (
               <button
@@ -193,35 +245,54 @@ export const MediaView: React.FC<MediaViewProps> = ({
             ))}
           </div>
 
-          {/* Gallery Grid */}
+          {/* Gallery Grid with Intersection Observer */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredGallery.map((gal) => (
+            {filteredGallery.map((gal, idx) => (
               <div
                 key={gal.id}
-                className="bg-white border border-[#CBD5E1] rounded-lg overflow-hidden shadow-2xs group hover:border-[#292A86] transition-colors"
+                onClick={() => setSelectedLightboxIndex(idx)}
+                className="bg-white border border-[#CBD5E1] rounded-xl overflow-hidden shadow-2xs group hover:border-[#292A86] hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col justify-between"
               >
-                <div className="relative h-48 bg-[#EEF2F8] overflow-hidden">
-                  <img
+                <div className="relative h-52 sm:h-56 bg-[#0E1324] overflow-hidden">
+                  {/* Native IntersectionObserver Lazy Image */}
+                  <LazyImage
                     src={gal.image}
                     alt={gal.title}
-                    className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                    referrerPolicy="no-referrer"
+                    thumbnailUrl={gal.thumbnailUrl}
+                    rootMargin="200px 0px"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    containerClassName="w-full h-full"
                   />
-                  <div className="absolute top-2 right-2 bg-stone-900/80 text-white text-[10px] font-mono px-2 py-0.5 rounded-xs">
-                    {gal.category}
+                  
+                  {/* Category Tag */}
+                  {gal.category && (
+                    <div className="absolute top-2.5 right-2.5 z-20 bg-stone-950/85 backdrop-blur-xs text-[#FFF000] text-[10px] font-mono font-bold px-2 py-0.5 rounded-sm border border-[#FFF000]/30 shadow-sm">
+                      {gal.category}
+                    </div>
+                  )}
+
+                  {/* Expand Overlay Icon */}
+                  <div className="absolute inset-0 z-20 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="px-3 py-1.5 rounded-full bg-black/80 border border-[#FFF000] text-[#FFF000] text-xs font-bold flex items-center gap-1.5 shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span>View Full Image</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-4 space-y-1.5">
-                  <div className="text-[11px] text-[#475569] font-medium">
-                    {gal.date}
+                <div className="p-4 space-y-1.5 flex-1 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="text-[11px] text-[#475569] font-medium flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3 text-stone-400" />
+                      <span>{gal.date}</span>
+                    </div>
+                    <h3 className="font-editorial text-sm sm:text-base font-bold text-[#0F1035] leading-snug group-hover:text-[#20216B] transition-colors">
+                      {gal.title}
+                    </h3>
+                    <p className="text-xs text-[#334155] font-prose-serif leading-relaxed line-clamp-2">
+                      {gal.description}
+                    </p>
                   </div>
-                  <h3 className="font-editorial text-sm sm:text-base font-bold text-[#0F1035] leading-snug">
-                    {gal.title}
-                  </h3>
-                  <p className="text-xs text-[#334155] font-prose-serif leading-relaxed line-clamp-2">
-                    {gal.description}
-                  </p>
                 </div>
               </div>
             ))}
@@ -260,36 +331,102 @@ export const MediaView: React.FC<MediaViewProps> = ({
                   <div className="flex items-center gap-2 text-xs text-[#475569]">
                     <span className="font-semibold text-[#20216B]">{doc.category}</span>
                     <span>·</span>
-                    <span className="font-mono text-[11px]">Ref: {doc.refNo}</span>
+                    <span className="font-mono text-[11px] text-stone-400">Ref: {doc.refNo}</span>
                     <span>·</span>
                     <span>{doc.date}</span>
                   </div>
-
-                  <h3 className="text-sm font-bold text-[#0F1035]">
+                  <div className="font-editorial text-sm sm:text-base font-bold text-[#0F1035]">
                     {doc.title}
-                  </h3>
-
-                  <div className="text-[11px] text-[#475569]">
-                    Format: {doc.fileType} Document · File Size: {doc.fileSize} · Verified Digitally
+                  </div>
+                  <div className="text-[11px] text-stone-400 font-mono">
+                    Format: {doc.fileType || 'PDF'} · Size: {doc.fileSize}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                <div className="shrink-0">
                   <button
-                    onClick={() => alert(`Simulated downloading: ${doc.title}`)}
-                    className="px-4 py-2 text-xs font-semibold text-white bg-[#20216B] hover:bg-[#292A86] rounded-md transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                    type="button"
+                    onClick={() => alert(`Downloading official document: ${doc.title} (${doc.refNo})`)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#EEF2F8] hover:bg-[#20216B] text-[#20216B] hover:text-[#FFF000] border border-[#CBD5E1] hover:border-[#20216B] rounded-sm text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download</span>
+                    <span>Download PDF</span>
                   </button>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
 
-          <div className="p-4 bg-[#EEF2F8] border border-[#CBD5E1] rounded-md text-xs text-[#334155] font-prose-serif leading-relaxed">
-            <strong>Authenticity Note:</strong> Forms downloaded from this portal are official instruments of DAR - E - ARQAM. Any alterations made to official circulars or forms void their institutional validity.
+      {/* 4. Fullscreen Lightbox Modal for Campus Gallery */}
+      {selectedLightboxIndex !== null && filteredGallery[selectedLightboxIndex] && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image Fullscreen Lightbox"
+        >
+          {/* Lightbox Header */}
+          <div className="flex items-center justify-between text-white pb-3 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <span className="px-2.5 py-1 rounded-md bg-[#20216B] text-[#FFF000] border border-[#D4AF37]/50 text-xs font-mono font-bold">
+                {String(selectedLightboxIndex + 1).padStart(2, '0')} / {String(filteredGallery.length).padStart(2, '0')}
+              </span>
+              <div className="font-editorial text-sm sm:text-base font-bold text-white truncate max-w-xs sm:max-w-md md:max-w-xl">
+                {filteredGallery[selectedLightboxIndex]?.title}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedLightboxIndex(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white hover:text-[#FFF000] transition-colors cursor-pointer"
+              aria-label="Close fullscreen modal"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
+
+          {/* Lightbox Image Center */}
+          <div className="relative flex-1 flex items-center justify-center my-4 overflow-hidden">
+            <LazyImage
+              src={filteredGallery[selectedLightboxIndex]?.image}
+              alt={filteredGallery[selectedLightboxIndex]?.title}
+              thumbnailUrl={filteredGallery[selectedLightboxIndex]?.thumbnailUrl}
+              className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl border border-white/10"
+              containerClassName="max-w-full max-h-[80vh] flex items-center justify-center bg-transparent"
+            />
+
+            {/* Prev & Next in Lightbox */}
+            {filteredGallery.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLightboxIndex((selectedLightboxIndex - 1 + filteredGallery.length) % filteredGallery.length)}
+                  className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white hover:text-[#FFF000] border border-white/20 transition-all cursor-pointer shadow-xl"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLightboxIndex((selectedLightboxIndex + 1) % filteredGallery.length)}
+                  className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white hover:text-[#FFF000] border border-white/20 transition-all cursor-pointer shadow-xl"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Lightbox Footer Caption */}
+          {filteredGallery[selectedLightboxIndex]?.description && (
+            <div className="max-w-3xl mx-auto text-center text-xs sm:text-sm text-stone-300 font-prose-serif pt-2 pb-1">
+              {filteredGallery[selectedLightboxIndex].description}
+            </div>
+          )}
         </div>
       )}
     </div>

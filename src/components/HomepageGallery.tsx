@@ -10,35 +10,36 @@ import {
   DEFAULT_GALLERY_SLIDES
 } from '../services/firebaseService';
 import { 
+  preloadGalleryImage, 
+  preloadNextSlides 
+} from '../services/imageOptimizationService';
+import { LazyImage } from './LazyImage';
+import { 
   ChevronLeft, 
   ChevronRight, 
   Maximize2, 
   X, 
   Sparkles, 
-  Layers, 
-  Pause, 
-  Play, 
   Image as ImageIcon,
   Building,
-  ShieldCheck,
-  Eye
+  RefreshCw
 } from 'lucide-react';
 
 export const HomepageGallery: React.FC = () => {
   const [slides, setSlides] = useState<GallerySlide[]>(DEFAULT_GALLERY_SLIDES);
   const [settings, setSettings] = useState<GallerySettings>(DEFAULT_GALLERY_SETTINGS);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isManualPaused, setIsManualPaused] = useState(false);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  // Slide tracking & touch handling refs
+  const autoSlideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
-  // Active enabled slides filtered and sorted
+  // Filter active enabled slides and sort by order
   const activeSlides = slides
     .filter(s => s.enabled)
     .sort((a, b) => a.order - b.order);
@@ -47,15 +48,13 @@ export const HomepageGallery: React.FC = () => {
 
   // Realtime subscription to Firebase
   useEffect(() => {
-    // Initial fetch
     fetchHomepageGallery().then(data => {
-      if (data.slides) setSlides(data.slides);
+      if (data.slides && data.slides.length > 0) setSlides(data.slides);
       if (data.settings) setSettings(data.settings);
     });
 
-    // Realtime sync
     const unsubscribe = subscribeHomepageGallery((data) => {
-      if (data.slides) setSlides(data.slides);
+      if (data.slides && data.slides.length > 0) setSlides(data.slides);
       if (data.settings) setSettings(data.settings);
     });
 
@@ -64,78 +63,131 @@ export const HomepageGallery: React.FC = () => {
     };
   }, []);
 
-  // Safe navigation helpers
+  // Performance: Preload active and upcoming slides in the background
+  useEffect(() => {
+    if (totalActive > 0) {
+      const currentUrl = activeSlides[currentIndex]?.url;
+      if (currentUrl) {
+        preloadGalleryImage(currentUrl);
+      }
+      preloadNextSlides(activeSlides, currentIndex, 3);
+    }
+  }, [currentIndex, totalActive, activeSlides]);
+
+  // Safe Index Bounds
+  const safeIndex = totalActive > 0 ? (currentIndex % totalActive + totalActive) % totalActive : 0;
+
+  // Navigation handlers
   const handleNext = useCallback(() => {
     if (totalActive <= 1) return;
     setCurrentIndex(prev => (prev + 1) % totalActive);
-    setProgress(0);
   }, [totalActive]);
 
   const handlePrev = useCallback(() => {
     if (totalActive <= 1) return;
     setCurrentIndex(prev => (prev - 1 + totalActive) % totalActive);
-    setProgress(0);
   }, [totalActive]);
 
-  const handleGoTo = (index: number) => {
-    setCurrentIndex(index);
-    setProgress(0);
-  };
+  const handleGoTo = useCallback((index: number) => {
+    if (totalActive <= 1) return;
+    setCurrentIndex(index % totalActive);
+  }, [totalActive]);
 
-  // Auto-slide effect with progress tracking
+  // Seamless Automatic Slide Rotation (Simple, clean, no progress bar)
   useEffect(() => {
-    if (totalActive <= 1) {
-      setProgress(0);
-      return;
+    if (totalActive <= 1) return;
+
+    if (autoSlideTimerRef.current) {
+      clearInterval(autoSlideTimerRef.current);
+      autoSlideTimerRef.current = null;
     }
 
-    const intervalTime = settings.autoSlideInterval || 4000;
-    const shouldPause = (isHovered && settings.pauseOnHover) || isManualPaused;
+    // Do not auto slide if user is actively touching or inspecting
+    if (isUserInteracting) return;
 
-    if (shouldPause) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-      return;
-    }
+    const intervalTime = Math.max(2000, settings.autoSlideInterval || 4000);
 
-    // Reset progress tick
-    setProgress(0);
-    const progressStep = 100 / (intervalTime / 50);
-
-    progressTimerRef.current = setInterval(() => {
-      setProgress(old => {
-        if (old >= 100) return 0;
-        return old + progressStep;
-      });
-    }, 50);
-
-    timerRef.current = setInterval(() => {
+    autoSlideTimerRef.current = setInterval(() => {
       setCurrentIndex(prev => (prev + 1) % totalActive);
-      setProgress(0);
     }, intervalTime);
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      if (autoSlideTimerRef.current) {
+        clearInterval(autoSlideTimerRef.current);
+        autoSlideTimerRef.current = null;
+      }
     };
-  }, [totalActive, settings.autoSlideInterval, settings.pauseOnHover, isHovered, isManualPaused]);
+  }, [totalActive, settings.autoSlideInterval, isUserInteracting, safeIndex]);
 
-  // Keyboard accessibility for lightbox and carousel
+  // Interaction handlers to pause during active touch/hover and resume smoothly
+  const triggerUserInteractionPause = useCallback(() => {
+    setIsUserInteracting(true);
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+    }
+    // Resume auto-sliding after 3.5s of no interaction
+    resumeTimerRef.current = setTimeout(() => {
+      setIsUserInteracting(false);
+    }, 3500);
+  }, []);
+
+  // Touch Swipe Handlers (Non-locking, robust)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+      triggerUserInteractionPause();
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // If deltaX is noticeable, signal interaction
+    if (touchStartXRef.current !== null && e.touches.length === 1) {
+      const deltaX = Math.abs(e.touches[0].clientX - touchStartXRef.current);
+      if (deltaX > 10) {
+        triggerUserInteractionPause();
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current !== null && e.changedTouches.length === 1) {
+      const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+      const deltaY = e.changedTouches[0].clientY - (touchStartYRef.current || 0);
+
+      // Horizontal swipe threshold: 35px horizontal and more horizontal than vertical
+      if (Math.abs(deltaX) > 35 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX < 0) {
+          handleNext();
+        } else {
+          handlePrev();
+        }
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    triggerUserInteractionPause();
+  };
+
+  const handleTouchCancel = () => {
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    setIsUserInteracting(false);
+  };
+
+  // Keyboard accessibility
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (lightboxIndex !== null) {
         if (e.key === 'Escape') setLightboxIndex(null);
-        if (e.key === 'ArrowRight') setLightboxIndex((lightboxIndex + 1) % totalActive);
-        if (e.key === 'ArrowLeft') setLightboxIndex((lightboxIndex - 1 + totalActive) % totalActive);
-      } else if (isHovered) {
-        if (e.key === 'ArrowRight') handleNext();
-        if (e.key === 'ArrowLeft') handlePrev();
+        if (e.key === 'ArrowRight') setLightboxIndex(prev => prev !== null ? (prev + 1) % totalActive : 0);
+        if (e.key === 'ArrowLeft') setLightboxIndex(prev => prev !== null ? (prev - 1 + totalActive) % totalActive : 0);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxIndex, totalActive, isHovered, handleNext, handlePrev]);
+  }, [lightboxIndex, totalActive]);
 
   if (totalActive === 0) {
     return (
@@ -153,12 +205,13 @@ export const HomepageGallery: React.FC = () => {
     );
   }
 
-  const currentSlide = activeSlides[currentIndex] || activeSlides[0];
+  const currentSlide = activeSlides[safeIndex] || activeSlides[0];
+  const isImageFailed = failedImages[currentSlide.id];
 
   return (
     <section 
       aria-label="Campus Visual Showcase" 
-      className="max-w-7xl mx-auto px-4 sm:px-6 my-10 sm:my-14"
+      className="max-w-7xl mx-auto px-4 sm:px-6 my-10 sm:my-14 select-none"
     >
       {/* 1. Header with futuristic badge */}
       <div className="mb-6 pb-4 border-b border-[#CBD5E1]/40">
@@ -178,61 +231,46 @@ export const HomepageGallery: React.FC = () => {
 
       {/* 2. Main Horizontal Showcase Card with Futuristic Backdrop */}
       <div 
-        ref={containerRef}
-        onPointerEnter={() => setIsHovered(true)}
-        onPointerLeave={() => setIsHovered(false)}
-        onTouchStart={() => setIsHovered(true)}
-        onTouchEnd={() => setIsHovered(false)}
+        onMouseEnter={triggerUserInteractionPause}
+        onMouseLeave={() => setIsUserInteracting(false)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         className="relative bg-gradient-to-br from-[#0B0F1F] via-[#141A35] to-[#1C244B] border-2 border-[#D4AF37]/40 rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden group transition-all duration-300"
       >
         {/* Subtle Ambient Radial Glow */}
         <div className="absolute -top-32 -right-32 w-80 h-80 rounded-full bg-[#FFF000]/10 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-[#20216B]/40 blur-3xl pointer-events-none" />
 
-        {/* Top Progress Bar for Auto-Slide */}
-        {totalActive > 1 && !isManualPaused && !isHovered && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 z-30">
-            <div 
-              className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFF000] transition-all duration-75"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        )}
-
-        {/* Hover Pause Indicator */}
-        {(isHovered || isManualPaused) && totalActive > 1 && (
-          <div className="absolute top-3 right-3 z-30 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[#FFF000] text-[10px] font-mono tracking-wide font-bold flex items-center gap-1.5 pointer-events-none animate-in fade-in">
-            <Pause className="w-2.5 h-2.5" />
-            <span>PAUSED</span>
-          </div>
-        )}
-
         {/* Image Track Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[360px] sm:min-h-[440px] md:min-h-[480px]">
-          {/* Main Visual Display (7 Columns on large screens) */}
-          <div className="lg:col-span-8 relative h-64 sm:h-80 md:h-[420px] lg:h-full bg-black overflow-hidden flex items-center justify-center">
-            {/* Current Active Image with Smooth Transition */}
-            <img
+          {/* Main Visual Display (7-8 Columns on large screens) */}
+          <div className="lg:col-span-8 relative h-64 sm:h-80 md:h-[420px] lg:h-full bg-[#0D1120] overflow-hidden flex items-center justify-center">
+            {/* Lazy Loaded Main Image with IntersectionObserver */}
+            <LazyImage
               key={currentSlide.id}
               src={currentSlide.url}
               alt={currentSlide.title || "Campus showcase photograph"}
-              className={`w-full h-full object-cover object-center transition-all duration-700 ease-out transform group-hover:scale-105 ${
-                loadedImages[currentSlide.id] ? 'opacity-100' : 'opacity-90 blur-xs'
-              }`}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              onLoad={() => setLoadedImages(prev => ({ ...prev, [currentSlide.id]: true }))}
+              thumbnailUrl={currentSlide.thumbnailUrl}
+              rootMargin="300px 0px"
+              className="relative z-10 w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+              containerClassName="w-full h-full"
             />
 
             {/* Dark gradient overlay for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1F] via-black/20 to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#0B0F1F]/70 hidden lg:block pointer-events-none" />
+            <div className="absolute inset-0 z-20 bg-gradient-to-t from-[#0B0F1F] via-black/15 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 z-20 bg-gradient-to-r from-transparent via-transparent to-[#0B0F1F]/70 hidden lg:block pointer-events-none" />
 
             {/* Expand / Lightbox Trigger Button */}
             <button
               type="button"
-              onClick={() => setLightboxIndex(currentIndex)}
-              className="absolute bottom-4 right-4 z-20 px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 backdrop-blur-md border border-[#FFF000]/60 text-[#FFF000] text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxIndex(safeIndex);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="absolute bottom-4 right-4 z-30 px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 backdrop-blur-md border border-[#FFF000]/60 text-[#FFF000] text-xs font-bold transition-all shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95"
               aria-label="View full screen high-resolution image"
             >
               <Maximize2 className="w-3.5 h-3.5" />
@@ -241,29 +279,39 @@ export const HomepageGallery: React.FC = () => {
 
             {/* Category tag over image */}
             {currentSlide.category && (
-              <div className="absolute top-4 left-4 z-20 px-3 py-1 rounded-lg bg-[#171852]/90 backdrop-blur-md border border-[#D4AF37]/60 text-[#FFF000] text-[11px] font-mono font-bold uppercase tracking-wider shadow-md">
+              <div className="absolute top-4 left-4 z-30 px-3 py-1 rounded-lg bg-[#171852]/90 backdrop-blur-md border border-[#D4AF37]/60 text-[#FFF000] text-[11px] font-mono font-bold uppercase tracking-wider shadow-md">
                 {currentSlide.category}
               </div>
             )}
 
-            {/* In-Image Large Chevrons for Quick Tapping on Mobile & Desktop */}
+            {/* In-Image Large Chevrons for Immediate Manual Navigation */}
             {totalActive > 1 && (
               <>
                 <button
                   type="button"
-                  onClick={handlePrev}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-2.5 rounded-full bg-black/50 hover:bg-black/80 text-white hover:text-[#FFF000] border border-white/20 backdrop-blur-sm transition-all shadow-lg cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerUserInteractionPause();
+                    handlePrev();
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-30 p-2.5 sm:p-3 rounded-full bg-black/65 hover:bg-black/90 active:scale-90 text-white hover:text-[#FFF000] border border-white/30 backdrop-blur-md transition-all shadow-xl cursor-pointer"
                   aria-label="Previous slide"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
                 <button
                   type="button"
-                  onClick={handleNext}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-2.5 rounded-full bg-black/50 hover:bg-black/80 text-white hover:text-[#FFF000] border border-white/20 backdrop-blur-sm transition-all shadow-lg cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerUserInteractionPause();
+                    handleNext();
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-30 p-2.5 sm:p-3 rounded-full bg-black/65 hover:bg-black/90 active:scale-90 text-white hover:text-[#FFF000] border border-white/30 backdrop-blur-md transition-all shadow-xl cursor-pointer"
                   aria-label="Next slide"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </>
             )}
@@ -298,16 +346,21 @@ export const HomepageGallery: React.FC = () => {
 
         {/* Bottom Indicator Dots */}
         {totalActive > 1 && settings.showIndicators && (
-          <div className="py-3 bg-[#0B0E1C] border-t border-[#1E293B] flex items-center justify-center gap-2">
+          <div className="py-3 bg-[#0B0E1C] border-t border-[#1E293B] flex items-center justify-center gap-2 relative z-30">
             {activeSlides.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
-                onClick={() => handleGoTo(idx)}
-                className={`h-2 rounded-full transition-all cursor-pointer ${
-                  currentIndex === idx 
-                    ? 'w-7 bg-[#FFF000] shadow-[0_0_8px_rgba(255,240,0,0.6)]' 
-                    : 'w-2 bg-white/30 hover:bg-white/60'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerUserInteractionPause();
+                  handleGoTo(idx);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className={`h-2.5 rounded-full transition-all cursor-pointer ${
+                  safeIndex === idx 
+                    ? 'w-8 bg-[#FFF000] shadow-[0_0_10px_rgba(255,240,0,0.7)]' 
+                    : 'w-2.5 bg-white/30 hover:bg-white/60'
                 }`}
                 aria-label={`Go to slide ${idx + 1}`}
               />
@@ -351,6 +404,7 @@ export const HomepageGallery: React.FC = () => {
               src={activeSlides[lightboxIndex]?.url}
               alt={activeSlides[lightboxIndex]?.title || "Inspection view"}
               className="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl border border-white/10"
+              decoding="async"
             />
 
             {/* Prev & Next in Lightbox */}

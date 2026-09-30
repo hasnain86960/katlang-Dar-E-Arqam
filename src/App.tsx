@@ -187,6 +187,10 @@ function AppContent() {
         title: 'Super Admin Master Control – DAR - E - ARQAM School Katlang Campus',
         description: 'Authorized website owner master control console for global branding, logos, and cover banners.',
       },
+      'verify-student': {
+        title: 'Student Identity Verification – DAR - E - ARQAM School Katlang Campus',
+        description: 'Official student QR code identity verification system by Dar-e-Arqam School Katlang Campus.',
+      },
     };
 
     const currentSeo = seoMap[currentPage] || seoMap.home;
@@ -365,8 +369,8 @@ function AppContent() {
 
       // Authentication & Student Portal
       case 'student-login':
-        // If already logged in and verified, take to student portal
-        if (user && user.emailVerified) {
+        // If already logged in, take directly to student portal
+        if (user) {
           return (
             <StudentPortalView
               onNavigate={handleNavigate}
@@ -389,7 +393,7 @@ function AppContent() {
       case 'student-register':
         return <RegisterView onNavigate={handleNavigate} />;
       case 'student-portal':
-        // Unauthenticated users are presented with the authentication choice screen
+        // Unauthenticated users are presented with the authentication screen
         if (!user) {
           return (
             <LoginView
@@ -399,22 +403,7 @@ function AppContent() {
             />
           );
         }
-        // Unverified users are strictly blocked from authenticated student features
-        if (!user.emailVerified) {
-          return (
-            <EmailVerificationScreen
-              email={user.email || ''}
-              studentId={studentProfile?.studentId}
-              onVerified={() => handleNavigate('student-portal')}
-              onReturnToRegister={() => {
-                logout();
-                handleNavigate('student-register');
-              }}
-              onNavigate={handleNavigate}
-            />
-          );
-        }
-        // Verified users continue to authenticated portal features
+        // Authenticated users view their student dashboard and official ID Card
         return (
           <StudentPortalView
             onNavigate={handleNavigate}

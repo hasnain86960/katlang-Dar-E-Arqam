@@ -19,6 +19,19 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in [
+          'darearqam@mardan.com',
+          'hasnainbuilds724656@gmail.com',
+          'hasnainqadir724657@gmail.com',
+          'admin@darearqam.com',
+          'principal@darearqam.com'
+        ] ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     // 1. Official Notices & Circulars (Publicly readable; protected writes)
     match /notices/{noticeId} {
       allow read, write: if true;
@@ -29,22 +42,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // 3. Students Profiles (Authenticated students read/write their own record)
+    // 3. Students Profiles (Publicly readable for official directory & ID card verification; student profile & photo updates)
     match /students/{studentDocId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid == studentDocId || 
-        resource.data.uid == request.auth.uid
-      );
-      allow create: if isSignedIn() && (
-        incoming().uid == request.auth.uid &&
-        incoming().studentId is string && incoming().studentId.size() <= 64 &&
-        incoming().name is string && incoming().name.size() <= 128
-      );
-      allow update: if isSignedIn() && (
-        resource.data.uid == request.auth.uid &&
-        incoming().uid == resource.data.uid
-      );
-      allow delete: if false;
+      allow read, write: if true;
     }
 
     // 4. Admission Applications (Public can submit; admin can manage)
@@ -78,8 +78,33 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // 8. Test connection doc (For connectivity health checks)
+    // 8. Homepage Gallery Slides
+    match /gallery_slides/{slideId} {
+      allow read, write: if true;
+    }
+
+    match /gallery/{slideId} {
+      allow read, write: if true;
+    }
+
+    // 9. Test connection doc (For connectivity health checks)
     match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // 10. Dynamic Student ID Card Templates (Public read for students; protected writes)
+    match /idCardTemplates/{templateId} {
+      allow read, write: if true;
+    }
+
+    // 11. Permanent Student QR Tokens (Public read for instant camera verification; protected writes)
+    match /qr_tokens/{tokenId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // 12. Student Attendance Event Records (Scanned E-Attendance logs)
+    match /attendance/{attendanceId} {
       allow read, write: if true;
     }
   }

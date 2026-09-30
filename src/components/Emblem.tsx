@@ -20,28 +20,28 @@ export const Emblem: React.FC<EmblemProps> = ({ className = '', size = 'md', cus
 
   const currentSize = sizeMap[size];
 
-  // If a custom logo has been uploaded by the admin, render it with a smart, borderless/clean look with soft drop-shadow
+  // If a custom logo has been uploaded by the admin, render it with a modern ultra-slim smart border (NO wide white disc or messy padding)
   if (activeLogo) {
     return (
       <div 
-        className={`relative shrink-0 flex items-center justify-center rounded-full bg-white shadow-md overflow-hidden select-none transition-all ${currentSize} ${className}`}
+        className={`relative shrink-0 flex items-center justify-center rounded-full overflow-hidden select-none transition-all ring-1 ring-[#FFF000]/50 shadow-sm ${currentSize} ${className}`}
         title="DAR - E - ARQAM Institutional Emblem"
       >
         <img
           src={activeLogo}
           alt="DAR - E - ARQAM Official Logo"
-          className="w-full h-full object-contain select-none max-w-full max-h-full p-0.5"
+          className="w-full h-full object-contain select-none max-w-full max-h-full"
           loading="eager"
-          decoding="sync"
+          decoding="async"
           style={{ imageRendering: 'auto' }}
         />
       </div>
     );
   }
 
-  // Default Vector Emblem matching Dar-e-Arqam Identity with sleek, smart styling (No harsh bold yellow border)
+  // Default Vector Emblem matching Dar-e-Arqam Identity with sleek, smart styling
   return (
-    <div className={`relative shrink-0 flex items-center justify-center rounded-full bg-[#20216B] shadow-md ${currentSize} ${className}`}>
+    <div className={`relative shrink-0 flex items-center justify-center rounded-full bg-[#20216B] ring-1 ring-[#FFF000]/40 shadow-sm ${currentSize} ${className}`}>
       <svg
         viewBox="0 0 100 100"
         fill="none"
@@ -50,7 +50,7 @@ export const Emblem: React.FC<EmblemProps> = ({ className = '', size = 'md', cus
         aria-hidden="true"
       >
         {/* Outer Subtle Rims */}
-        <circle cx="50" cy="50" r="48" stroke="#292A86" strokeWidth="2" fill="#20216B" />
+        <circle cx="50" cy="50" r="48" stroke="#292A86" strokeWidth="1.5" fill="#20216B" />
         <circle cx="50" cy="50" r="44" stroke="#FFF000" strokeWidth="0.75" strokeDasharray="1.5 2" />
         <circle cx="50" cy="50" r="39" stroke="#3B3EB0" strokeWidth="0.75" />
 

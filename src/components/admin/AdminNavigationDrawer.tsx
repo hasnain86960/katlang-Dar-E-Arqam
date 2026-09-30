@@ -38,12 +38,15 @@ import {
   LogOut,
   ChevronDown,
   ChevronRight,
-  X
+  X,
+  IdCard
 } from 'lucide-react';
 
 export type AdminSectionKey =
   | 'dashboard'
   // Student Management
+  | 'classes'
+  | 'id-card-template'
   | 'students'
   | 'student-profiles'
   | 'attendance'
@@ -387,6 +390,44 @@ export const AdminNavigationDrawer: React.FC<AdminNavigationDrawerProps> = ({
 
             {openCategories.students && (
               <div className="space-y-0.5 pl-2">
+                {/* Classes & Student Management */}
+                <button
+                  type="button"
+                  onClick={() => handleItemClick('classes')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors cursor-pointer text-left ${
+                    activeSection === 'classes'
+                      ? 'bg-[#20216B] text-[#FFF000] font-semibold border-l-2 border-[#D4AF37] shadow-xs'
+                      : 'text-stone-300 hover:bg-[#161B30] hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <GraduationCap className={`w-3.5 h-3.5 ${activeSection === 'classes' ? 'text-[#FFF000]' : 'text-[#D4AF37]'}`} />
+                    <span>Classes & Enrolled Students</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-[#FFF000] bg-[#20216B] px-1.5 py-0.2 rounded border border-[#D4AF37]/40 font-bold">
+                    13 Classes
+                  </span>
+                </button>
+
+                {/* ID Card Template Studio */}
+                <button
+                  type="button"
+                  onClick={() => handleItemClick('id-card-template')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors cursor-pointer text-left ${
+                    activeSection === 'id-card-template'
+                      ? 'bg-[#20216B] text-[#FFF000] font-semibold border-l-2 border-[#D4AF37] shadow-xs'
+                      : 'text-stone-300 hover:bg-[#161B30] hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <IdCard className={`w-3.5 h-3.5 ${activeSection === 'id-card-template' ? 'text-[#FFF000]' : 'text-[#D4AF37]'}`} />
+                    <span>ID Card Template</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-[#FFF000] bg-[#20216B] px-1.5 py-0.2 rounded border border-[#D4AF37]/40 font-bold">
+                    Design
+                  </span>
+                </button>
+
                 {/* Examination Results */}
                 <button
                   type="button"

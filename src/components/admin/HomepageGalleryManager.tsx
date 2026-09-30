@@ -8,6 +8,11 @@ import {
   HomepageGalleryState 
 } from '../../services/firebaseService';
 import { 
+  processAndUploadGalleryImage,
+  preloadGalleryImage 
+} from '../../services/imageOptimizationService';
+import { deleteFromCloudinary } from '../../services/cloudinaryService';
+import { 
   Upload, 
   Plus, 
   Trash2, 
@@ -29,7 +34,10 @@ import {
   ExternalLink,
   Layers,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  Check,
+  RefreshCw
 } from 'lucide-react';
 
 interface HomepageGalleryManagerProps {
@@ -50,8 +58,13 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('Campus Life');
   const [newCaption, setNewCaption] = useState('');
+  
+  // Upload status & progress
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadStageText, setUploadStageText] = useState<string>('');
+  const [uploadStage, setUploadStage] = useState<'idle' | 'processing' | 'uploading' | 'completed' | 'error'>('idle');
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Edit slide modal
   const [editingSlide, setEditingSlide] = useState<GallerySlide | null>(null);
@@ -98,78 +111,199 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
     }
   };
 
-  // Convert files to base64 data URLs
+  // Convert & optimize files to modern WebP format with micro thumbnails and upload to Firebase
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setIsUploadingFiles(true);
-    setUploadProgress(0);
+    const fileList = Array.from(files);
+    setUploadError(null);
 
-    const newUploadedSlides: GallerySlide[] = [];
-    const total = files.length;
+    // Validate size and format
+    const validFiles: File[] = [];
+    const rejectedFiles: string[] = [];
 
-    for (let i = 0; i < total; i++) {
-      const file = files[i];
-      try {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        const newSlide: GallerySlide = {
-          id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          url: base64,
-          title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
-          category: 'Campus Infrastructure',
-          caption: 'Institutional facilities and scholastic activities at DAR - E - ARQAM.',
-          order: slides.length + newUploadedSlides.length + 1,
-          enabled: true,
-          createdAt: new Date().toISOString(),
-        };
-
-        newUploadedSlides.push(newSlide);
-        setUploadProgress(Math.round(((i + 1) / total) * 100));
-      } catch (err) {
-        console.error('Error reading file:', err);
+    for (const f of fileList) {
+      if (f.size > 25 * 1024 * 1024) {
+        rejectedFiles.push(`${f.name} (exceeds 25MB limit)`);
+      } else if (!f.type.startsWith('image/') && !f.name.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i)) {
+        rejectedFiles.push(`${f.name} (unsupported format)`);
+      } else {
+        validFiles.push(f);
       }
     }
 
-    const combined = [...slides, ...newUploadedSlides];
-    setSlides(combined);
-    setIsUploadingFiles(false);
-    setUploadProgress(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (rejectedFiles.length > 0 && validFiles.length === 0) {
+      setUploadError(`Upload rejected: ${rejectedFiles.join(', ')}`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
-    // Automatically persist to Firebase
-    await handleSaveAll(combined, settings);
+    setIsUploadingFiles(true);
+    setUploadStage('processing');
+    setUploadProgress(0);
+
+    const newUploadedSlides: GallerySlide[] = [];
+    const total = validFiles.length;
+    const itemErrors: string[] = [];
+
+    try {
+      for (let i = 0; i < total; i++) {
+        const file = validFiles[i];
+        const stepBase = Math.round((i / total) * 100);
+        setUploadProgress(stepBase);
+        setUploadStageText(`Processing & optimizing (${i + 1}/${total}): ${file.name}`);
+
+        try {
+          // High-performance image optimization & WebP encoding pipeline with timeout protection
+          const opt = await processAndUploadGalleryImage(file, {
+            maxWidth: 1920,
+            maxHeight: 1080,
+            quality: 0.84,
+            onStageChange: (stage) => {
+              if (stage === 'uploading') {
+                setUploadStage('uploading');
+                setUploadStageText(`Uploading to Cloudinary CDN (${i + 1}/${total}): ${file.name}`);
+              } else if (stage === 'processing') {
+                setUploadStage('processing');
+                setUploadStageText(`Compressing & Optimizing (${i + 1}/${total}): ${file.name}`);
+              }
+            }
+          });
+
+          const newSlide: GallerySlide = {
+            id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            url: opt.url,
+            thumbnailUrl: opt.thumbnailUrl,
+            publicId: opt.publicId,
+            width: opt.width,
+            height: opt.height,
+            aspectRatio: opt.aspectRatio,
+            fileSizeKB: opt.fileSizeKB,
+            originalSizeKB: opt.originalSizeKB,
+            format: opt.format,
+            title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
+            category: 'Campus Infrastructure',
+            caption: 'Institutional facilities and scholastic activities at DAR - E - ARQAM.',
+            order: slides.length + newUploadedSlides.length + 1,
+            enabled: true,
+            createdAt: new Date().toISOString(),
+          };
+
+          newUploadedSlides.push(newSlide);
+          setUploadProgress(Math.round(((i + 1) / total) * 100));
+        } catch (itemErr: any) {
+          console.error(`Error processing image ${file.name}:`, itemErr);
+          itemErrors.push(`${file.name}: ${itemErr?.message || 'Processing failed'}`);
+        }
+      }
+
+      if (newUploadedSlides.length > 0) {
+        setUploadStage('uploading');
+        setUploadStageText('Saving updates to Firestore...');
+        const combined = [...slides, ...newUploadedSlides];
+        setSlides(combined);
+        await handleSaveAll(combined, settings);
+        setUploadStage('completed');
+        setUploadStageText(`Successfully uploaded ${newUploadedSlides.length} image${newUploadedSlides.length > 1 ? 's' : ''}!`);
+        
+        setTimeout(() => {
+          setUploadStage('idle');
+          setUploadStageText('');
+        }, 3500);
+      }
+
+      if (itemErrors.length > 0) {
+        setUploadError(`Some files had errors: ${itemErrors.join('; ')}`);
+      }
+    } catch (globalErr: any) {
+      console.error('Fatal batch upload error:', globalErr);
+      setUploadStage('error');
+      setUploadError(globalErr?.message || 'Upload process encountered an error. Please try again.');
+    } finally {
+      setIsUploadingFiles(false);
+      setUploadProgress(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
-  // Add slide via URL
+  // Add slide via URL with automatic optimization & metadata extraction
   const handleAddViaUrl = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newImageUrl.trim()) return;
 
-    const newSlide: GallerySlide = {
-      id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      url: newImageUrl.trim(),
-      title: newTitle.trim() || 'Institutional Facility Showcase',
-      category: newCategory.trim() || 'Campus Facilities',
-      caption: newCaption.trim() || 'Modern academic and infrastructure facilities.',
-      order: slides.length + 1,
-      enabled: true,
-      createdAt: new Date().toISOString(),
-    };
+    setIsUploadingFiles(true);
+    setUploadStage('processing');
+    setUploadStageText('Optimizing and validating web image URL...');
+    setUploadError(null);
 
-    const updated = [...slides, newSlide];
-    setSlides(updated);
-    setNewImageUrl('');
-    setNewTitle('');
-    setNewCaption('');
+    try {
+      const opt = await processAndUploadGalleryImage(newImageUrl.trim(), {
+        maxWidth: 1920,
+        maxHeight: 1080,
+        quality: 0.84,
+      });
 
-    await handleSaveAll(updated, settings);
+      const newSlide: GallerySlide = {
+        id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        url: opt.url,
+        thumbnailUrl: opt.thumbnailUrl,
+        width: opt.width,
+        height: opt.height,
+        aspectRatio: opt.aspectRatio,
+        fileSizeKB: opt.fileSizeKB,
+        originalSizeKB: opt.originalSizeKB,
+        format: opt.format,
+        title: newTitle.trim() || 'Institutional Facility Showcase',
+        category: newCategory.trim() || 'Campus Facilities',
+        caption: newCaption.trim() || 'Modern academic and infrastructure facilities.',
+        order: slides.length + 1,
+        enabled: true,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updated = [...slides, newSlide];
+      setSlides(updated);
+      setNewImageUrl('');
+      setNewTitle('');
+      setNewCaption('');
+      setUploadStage('uploading');
+      setUploadStageText('Saving to Firestore...');
+
+      await handleSaveAll(updated, settings);
+      setUploadStage('completed');
+      setUploadStageText('Image added to gallery successfully!');
+      setTimeout(() => {
+        setUploadStage('idle');
+        setUploadStageText('');
+      }, 3500);
+    } catch (err: any) {
+      console.warn('Fallback adding raw URL directly:', err);
+      const fallbackSlide: GallerySlide = {
+        id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        url: newImageUrl.trim(),
+        title: newTitle.trim() || 'Institutional Facility Showcase',
+        category: newCategory.trim() || 'Campus Facilities',
+        caption: newCaption.trim() || 'Modern academic and infrastructure facilities.',
+        order: slides.length + 1,
+        enabled: true,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [...slides, fallbackSlide];
+      setSlides(updated);
+      setNewImageUrl('');
+      setNewTitle('');
+      setNewCaption('');
+      await handleSaveAll(updated, settings);
+      setUploadStage('completed');
+      setUploadStageText('Image added directly to gallery!');
+      setTimeout(() => {
+        setUploadStage('idle');
+        setUploadStageText('');
+      }, 3500);
+    } finally {
+      setIsUploadingFiles(false);
+    }
   };
 
   // Reordering helpers
@@ -205,18 +339,36 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
     await handleSaveAll(updated, settings);
   };
 
+  // Delete slide state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   // Delete slide
   const handleDeleteSlide = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this gallery photo?')) return;
-    const updated = slides
-      .filter(s => s.id !== id)
-      .map((s, idx) => ({ ...s, order: idx + 1 }));
-    setSlides(updated);
-    await handleSaveAll(updated, settings);
+    setDeletingId(id);
+    try {
+      const slideToDelete = slides.find(s => s.id === id);
+      const updated = slides.filter(s => s.id !== id);
+      // Re-index remaining
+      const normalized = updated.map((s, idx) => ({ ...s, order: idx + 1 }));
+      setSlides(normalized);
+      await handleSaveAll(normalized, settings);
+
+      if (slideToDelete?.publicId) {
+        deleteFromCloudinary(slideToDelete.publicId).catch(() => {});
+      }
+
+      if (onSuccessNotification) {
+        onSuccessNotification('Image removed from gallery and synchronized successfully.');
+      }
+    } catch (err) {
+      console.error('Failed to delete slide:', err);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
-  // Update slide details modal save
-  const handleSaveEditedSlide = async () => {
+  // Save edited slide
+  const handleSaveEditModal = async () => {
     if (!editingSlide) return;
     const updated = slides.map(s => s.id === editingSlide.id ? editingSlide : s);
     setSlides(updated);
@@ -224,47 +376,45 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
     await handleSaveAll(updated, settings);
   };
 
-  // Update duration settings
-  const handleIntervalChange = async (intervalMs: number) => {
-    const newSettings = { ...settings, autoSlideInterval: intervalMs };
-    setSettings(newSettings);
-    await handleSaveAll(slides, newSettings);
-  };
-
-  // Reset to default institutional showcase
-  const handleResetToDefaults = async () => {
-    if (!confirm('Reset gallery to default institutional photos and settings?')) return;
+  // Reset to default sample slides
+  const handleResetDefaults = async () => {
     setSlides(DEFAULT_GALLERY_SLIDES);
     setSettings(DEFAULT_GALLERY_SETTINGS);
     await handleSaveAll(DEFAULT_GALLERY_SLIDES, DEFAULT_GALLERY_SETTINGS);
+    if (onSuccessNotification) {
+      onSuccessNotification('Gallery reset to institutional default images.');
+    }
   };
 
-  const activeCount = slides.filter(s => s.enabled).length;
+  // Active slides for preview
+  const activeSlides = slides.filter(s => s.enabled);
+  const currentPreviewSlide = activeSlides[previewIndex] || activeSlides[0] || slides[0];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      {/* 1. Header Banner */}
-      <div className="bg-gradient-to-r from-[#171852] via-[#20216B] to-[#292A86] border-2 border-[#D4AF37]/50 rounded-2xl p-5 sm:p-7 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF000]/15 border border-[#FFF000]/40 text-[#FFF000] text-xs font-mono font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-            <span>Realtime Firebase Showcase</span>
+    <div className="space-y-8">
+      {/* 1. Header Banner & Actions */}
+      <div className="bg-gradient-to-r from-[#0F1424] via-[#141A35] to-[#1C244B] border border-[#263352] rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase bg-[#20216B] text-[#FFF000] border border-[#D4AF37]/40 shadow-xs">
+            <Sparkles className="w-3 h-3 text-[#FFF000]" />
+            <span>REALTIME FIREBASE SHOWCASE</span>
           </div>
-          <h2 className="font-editorial text-2xl sm:text-3xl font-extrabold text-white">
-            Homepage Gallery Management
+          <h2 className="font-editorial text-xl sm:text-2xl md:text-3xl font-bold text-white tracking-tight">
+            Homepage Horizontal Gallery Manager
           </h2>
-          <p className="text-xs sm:text-sm text-stone-200 font-prose-serif max-w-xl">
-            Upload unlimited institutional photos, reorder slides, adjust auto-slide timing, and publish changes in realtime to the public portal.
+          <p className="text-xs sm:text-sm text-stone-300 font-prose-serif max-w-2xl">
+            Upload and manage the horizontal visual archive at the bottom of the public homepage. 
+            All changes sync in realtime across all visitors.
           </p>
         </div>
 
-        {/* Global Action Bar */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={handleResetToDefaults}
-            className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 hover:text-white border border-white/20 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
-            title="Reset to default campus photos"
+            onClick={handleResetDefaults}
+            disabled={isSaving || isUploadingFiles}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-300 hover:text-white bg-[#161B30] hover:bg-[#1E2540] border border-[#263352] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Reset gallery to default verified photos"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Defaults</span>
@@ -272,81 +422,77 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
 
           <button
             type="button"
-            onClick={() => handleSaveAll()}
-            disabled={isSaving}
-            className="px-5 py-2.5 rounded-xl bg-[#FFF000] hover:bg-[#F5D900] text-[#171852] font-extrabold text-xs shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            onClick={() => handleSaveAll(slides, settings)}
+            disabled={isSaving || isUploadingFiles}
+            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-[#171852] bg-[#FFF000] hover:bg-[#F5D900] active:scale-95 border border-[#D4AF37] transition-all flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
           >
             {isSaving ? (
               <>
-                <span className="w-3.5 h-3.5 border-2 border-[#171852] border-t-transparent rounded-full animate-spin" />
-                <span>Saving...</span>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Saving to Firebase...</span>
               </>
             ) : saveSuccess ? (
               <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                <span>Saved & Live!</span>
+                <Check className="w-4 h-4 text-emerald-800" />
+                <span>Saved & Synced!</span>
               </>
             ) : (
               <>
-                <Save className="w-4 h-4 text-[#171852]" />
-                <span>Save & Sync Firebase</span>
+                <Save className="w-4 h-4" />
+                <span>Save All Changes</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* 2. Configuration & Timing Controls Card */}
-      <div className="bg-[#0F1424] border border-[#263352] rounded-2xl p-5 sm:p-6 space-y-6 shadow-md">
-        <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
-          <div className="flex items-center gap-2.5">
+      {/* 2. Slide Duration & Carousel Controls Card */}
+      <div className="bg-[#0F1424] border border-[#263352] rounded-2xl p-5 sm:p-6 space-y-5 shadow-md">
+        <div className="border-b border-[#1E293B] pb-3">
+          <h3 className="font-editorial text-base sm:text-lg font-bold text-white flex items-center gap-2">
             <Sliders className="w-4 h-4 text-[#FFF000]" />
-            <h3 className="font-editorial text-base sm:text-lg font-bold text-white">
-              Gallery Carousel Preferences
-            </h3>
-          </div>
-          <span className="text-xs font-mono text-[#D4AF37] font-semibold">
-            {activeCount} Active Slide{activeCount !== 1 ? 's' : ''}
-          </span>
+            <span>Slider Timing & Display Settings</span>
+          </h3>
+          <p className="text-xs text-stone-400 mt-0.5">
+            Configure how fast images rotate and how user interaction behaves on the homepage.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Slide Duration Interval */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Slide Rotation Interval */}
           <div className="space-y-2.5 bg-[#161B30] p-4 rounded-xl border border-[#263352]">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-white flex items-center gap-1.5">
+            <label className="text-xs font-bold text-white flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[#FFF000]" />
                 <span>Auto-Slide Duration</span>
-              </label>
-              <span className="text-[11px] font-mono text-[#FFF000] font-bold">
-                {settings.autoSlideInterval / 1000}s
               </span>
-            </div>
-            <p className="text-[11px] text-stone-400">
-              Select time duration before moving to the next image automatically.
-            </p>
-            <div className="grid grid-cols-5 gap-1.5 pt-1">
-              {[
-                { label: '3s', val: 3000 },
-                { label: '4s', val: 4000 },
-                { label: '5s', val: 5000 },
-                { label: '7s', val: 7000 },
-                { label: '10s', val: 10000 },
-              ].map((item) => (
+              <span className="font-mono text-[#FFF000] text-xs">
+                {(settings.autoSlideInterval || 4000) / 1000}s per slide
+              </span>
+            </label>
+            <div className="grid grid-cols-5 gap-1.5">
+              {[2000, 3000, 4000, 5000, 7000].map((ms) => (
                 <button
-                  key={item.val}
+                  key={ms}
                   type="button"
-                  onClick={() => handleIntervalChange(item.val)}
+                  onClick={() => {
+                    const updated = { ...settings, autoSlideInterval: ms };
+                    setSettings(updated);
+                    handleSaveAll(slides, updated);
+                  }}
                   className={`py-1.5 px-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                    settings.autoSlideInterval === item.val
-                      ? 'bg-[#FFF000] text-[#171852] shadow-sm ring-1 ring-[#FFF000]'
-                      : 'bg-[#0F1424] text-stone-300 hover:text-white hover:bg-[#1E2540] border border-[#263352]'
+                    (settings.autoSlideInterval || 4000) === ms
+                      ? 'bg-[#20216B] text-[#FFF000] border border-[#D4AF37]/60 shadow-xs'
+                      : 'bg-[#0F1424] text-stone-400 hover:text-white border border-[#263352]'
                   }`}
                 >
-                  {item.label}
+                  {ms / 1000}s
                 </button>
               ))}
             </div>
+            <p className="text-[11px] text-stone-400">
+              Default is 4.0s for comfortable reading of titles and captions.
+            </p>
           </div>
 
           {/* Pause on Hover Option */}
@@ -437,44 +583,81 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
           </p>
         </div>
 
+        {/* Global Error Banner */}
+        {uploadError && (
+          <div className="p-3.5 bg-red-950/60 border border-red-500/40 rounded-xl text-red-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{uploadError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUploadError(null)}
+              className="p-1 text-stone-400 hover:text-white rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Drag & Drop Multi-file Uploader */}
           <div 
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-[#D4AF37]/50 hover:border-[#FFF000] bg-[#161B30]/60 hover:bg-[#161B30] rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 group"
+            onClick={() => {
+              if (!isUploadingFiles) fileInputRef.current?.click();
+            }}
+            className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all flex flex-col items-center justify-center gap-3 group ${
+              isUploadingFiles
+                ? 'border-[#FFF000]/60 bg-[#161B30] cursor-wait'
+                : 'border-[#D4AF37]/50 hover:border-[#FFF000] bg-[#161B30]/60 hover:bg-[#161B30] cursor-pointer'
+            }`}
           >
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/jpg,image/gif"
               multiple
+              disabled={isUploadingFiles}
               onChange={handleFileUpload}
               className="hidden"
             />
+            
             <div className="w-14 h-14 rounded-2xl bg-[#20216B] group-hover:bg-[#2B2D8C] text-[#FFF000] border border-[#D4AF37]/50 flex items-center justify-center transition-transform group-hover:scale-110 shadow-lg">
-              <Upload className="w-6 h-6" />
+              {isUploadingFiles ? (
+                <RefreshCw className="w-6 h-6 animate-spin text-[#FFF000]" />
+              ) : (
+                <Upload className="w-6 h-6" />
+              )}
             </div>
+
             <div>
               <div className="text-sm font-bold text-white group-hover:text-[#FFF000] transition-colors">
-                Click or Drop Multiple Images Here
+                {isUploadingFiles ? 'Processing & Uploading...' : 'Click or Drop Multiple Images Here'}
               </div>
               <div className="text-xs text-stone-400 mt-1">
-                Supports JPG, PNG, WEBP (No limit on number of images)
+                Supports JPG, PNG, WEBP (Max 25MB per photo)
               </div>
             </div>
 
             {isUploadingFiles && (
               <div className="w-full max-w-xs space-y-1.5 pt-2">
                 <div className="flex justify-between text-xs text-[#FFF000] font-mono">
-                  <span>Processing batch...</span>
-                  <span>{uploadProgress}%</span>
+                  <span className="truncate max-w-[200px]">{uploadStageText || 'Processing batch...'}</span>
+                  <span>{uploadProgress || 0}%</span>
                 </div>
                 <div className="w-full h-2 bg-stone-800 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFF000] transition-all duration-150"
+                    className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFF000] transition-all duration-200"
                     style={{ width: `${uploadProgress || 0}%` }}
                   />
                 </div>
+              </div>
+            )}
+
+            {uploadStage === 'completed' && !isUploadingFiles && (
+              <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{uploadStageText || 'Upload completed successfully!'}</span>
               </div>
             )}
           </div>
@@ -491,10 +674,11 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
               <input
                 type="url"
                 required
+                disabled={isUploadingFiles}
                 placeholder="https://example.com/images/campus-event.jpg"
                 value={newImageUrl}
                 onChange={(e) => setNewImageUrl(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000]"
+                className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000] disabled:opacity-50"
               />
             </div>
 
@@ -503,10 +687,11 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
                 <label className="block text-xs font-semibold text-white mb-1">Slide Title</label>
                 <input
                   type="text"
+                  disabled={isUploadingFiles}
                   placeholder="e.g. Science Exhibition 2026"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000]"
+                  className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000] disabled:opacity-50"
                 />
               </div>
 
@@ -514,10 +699,11 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
                 <label className="block text-xs font-semibold text-white mb-1">Category</label>
                 <input
                   type="text"
+                  disabled={isUploadingFiles}
                   placeholder="e.g. Campus Facilities"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000]"
+                  className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000] disabled:opacity-50"
                 />
               </div>
             </div>
@@ -526,19 +712,30 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
               <label className="block text-xs font-semibold text-white mb-1">Caption Description</label>
               <input
                 type="text"
+                disabled={isUploadingFiles}
                 placeholder="Brief summary of what this photo depicts"
                 value={newCaption}
                 onChange={(e) => setNewCaption(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000]"
+                className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-xs text-white placeholder:text-stone-500 focus:outline-hidden focus:border-[#FFF000] disabled:opacity-50"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-[#20216B] hover:bg-[#2A2C8A] border border-[#D4AF37]/50 text-[#FFF000] font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+              disabled={isUploadingFiles}
+              className="w-full py-2.5 rounded-xl bg-[#20216B] hover:bg-[#2A2C8A] border border-[#D4AF37]/50 text-[#FFF000] font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Image to Gallery</span>
+              {isUploadingFiles ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Adding Image...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Image to Gallery</span>
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -649,48 +846,64 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
                         </span>
                       )}
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        slide.enabled ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/50' : 'bg-stone-800 text-stone-400'
+                        slide.enabled ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-stone-800 text-stone-400'
                       }`}>
                         {slide.enabled ? 'Active' : 'Disabled'}
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-stone-300 font-prose-serif line-clamp-1">
+                    <p className="text-xs text-stone-300 line-clamp-1 max-w-xl font-prose-serif">
                       {slide.caption || "No description provided."}
                     </p>
+
+                    {slide.fileSizeKB && (
+                      <div className="text-[10px] text-stone-400 font-mono">
+                        Optimized: {slide.format?.toUpperCase()} · {slide.fileSizeKB} KB {slide.width ? `(${slide.width}×${slide.height})` : ''}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Right: Actions */}
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  {/* Toggle Active */}
                   <button
                     type="button"
                     onClick={() => handleToggleEnable(slide.id)}
-                    className={`p-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer border ${
+                    className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                       slide.enabled
-                        ? 'bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border-emerald-800/40'
-                        : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border-stone-700'
+                        ? 'bg-emerald-950/60 text-emerald-300 hover:bg-emerald-900 border border-emerald-700/50'
+                        : 'bg-stone-800 text-stone-400 hover:text-white'
                     }`}
-                    title={slide.enabled ? "Hide from public homepage" : "Show on public homepage"}
+                    title={slide.enabled ? 'Disable slide' : 'Enable slide'}
                   >
-                    {slide.enabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    {slide.enabled ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                   </button>
 
+                  {/* Edit Metadata */}
                   <button
                     type="button"
                     onClick={() => setEditingSlide(slide)}
-                    className="px-3 py-1.5 rounded-lg bg-[#20216B] hover:bg-[#2A2C8A] border border-[#D4AF37]/40 text-[#FFF000] text-xs font-semibold transition-colors cursor-pointer"
+                    className="p-2 bg-[#161B30] hover:bg-[#1E2540] text-stone-300 hover:text-[#FFF000] border border-[#263352] rounded-lg transition-colors cursor-pointer text-xs"
+                    title="Edit title & caption"
                   >
-                    Edit Info
+                    Edit
                   </button>
 
+                  {/* Delete */}
                   <button
                     type="button"
+                    disabled={deletingId === slide.id}
                     onClick={() => handleDeleteSlide(slide.id)}
-                    className="p-2 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 transition-colors cursor-pointer"
-                    title="Delete image"
+                    className="p-2 bg-red-950/40 hover:bg-red-900/60 active:scale-95 text-red-300 hover:text-red-100 border border-red-800/40 rounded-lg transition-all cursor-pointer text-xs flex items-center justify-center disabled:opacity-50"
+                    title="Delete image from gallery"
+                    aria-label="Delete image from gallery"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    {deletingId === slide.id ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-red-300" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -699,154 +912,149 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
         )}
       </div>
 
-      {/* 5. Live Simulator in Admin Console */}
-      {slides.filter(s => s.enabled).length > 0 && (
-        <div className="bg-[#0F1424] border border-[#263352] rounded-2xl p-5 sm:p-6 space-y-4 shadow-md">
-          <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
+      {/* 5. Live Simulator Preview Card */}
+      <div className="bg-[#0F1424] border border-[#263352] rounded-2xl p-5 sm:p-6 space-y-4 shadow-md">
+        <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
+          <div>
             <h3 className="font-editorial text-base sm:text-lg font-bold text-white flex items-center gap-2">
               <Eye className="w-4 h-4 text-[#FFF000]" />
-              <span>Realtime Live Carousel Simulator</span>
+              <span>Live Website Gallery Simulator</span>
             </h3>
-            <span className="text-xs font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-md border border-emerald-600/40 font-bold">
-              Synced with Public Website
-            </span>
+            <p className="text-xs text-stone-400">
+              Interactive preview matching the exact presentation shown to visitors on the homepage.
+            </p>
           </div>
 
-          <div className="relative h-60 sm:h-80 rounded-2xl overflow-hidden border-2 border-[#D4AF37]/50 bg-black shadow-inner flex flex-col justify-between">
-            {(() => {
-              const active = slides.filter(s => s.enabled);
-              const cur = active[previewIndex % active.length] || active[0];
-              if (!cur) return null;
-              return (
-                <div className="relative w-full h-full flex flex-col justify-between">
-                  <img
-                    src={cur.url}
-                    alt={cur.title}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
-
-                  {/* Top Header Tag */}
-                  <div className="relative z-10 p-3 flex items-center justify-between">
-                    {cur.category && (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-[#171852]/90 backdrop-blur-md text-[#FFF000] border border-[#D4AF37]/40 font-bold uppercase">
-                        {cur.category}
-                      </span>
-                    )}
-                    <span className="px-2 py-0.5 rounded-md bg-black/60 text-stone-300 text-[10px] font-mono">
-                      {previewIndex + 1} / {active.length}
-                    </span>
-                  </div>
-
-                  {/* Bottom Minimal Title & Chevrons */}
-                  <div className="relative z-10 p-3 sm:p-4 text-white flex items-end justify-between gap-3">
-                    <div className="min-w-0">
-                      <h4 className="font-editorial text-sm sm:text-base font-bold text-white truncate max-w-sm sm:max-w-md">
-                        {cur.title || "Campus Facility Showcase"}
-                      </h4>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewIndex(prev => (prev - 1 + active.length) % active.length)}
-                        className="p-1.5 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 cursor-pointer"
-                        aria-label="Previous preview"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewIndex(prev => (prev + 1) % active.length)}
-                        className="p-1.5 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 cursor-pointer"
-                        aria-label="Next preview"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Bottom Indicator Dots */}
-                  <div className="relative z-10 py-1.5 bg-black/50 backdrop-blur-xs border-t border-white/10 flex items-center justify-center gap-1.5">
-                    {active.map((_, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setPreviewIndex(idx)}
-                        className={`h-1.5 rounded-full transition-all ${
-                          previewIndex === idx ? 'w-5 bg-[#FFF000]' : 'w-1.5 bg-white/30'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+          {activeSlides.length > 1 && (
+            <div className="flex items-center gap-2 text-xs font-mono text-stone-300">
+              <button
+                type="button"
+                onClick={() => setPreviewIndex((previewIndex - 1 + activeSlides.length) % activeSlides.length)}
+                className="p-1.5 rounded-lg bg-[#161B30] hover:bg-[#1E2540] text-white cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span>{previewIndex + 1} / {activeSlides.length}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewIndex((previewIndex + 1) % activeSlides.length)}
+                className="p-1.5 rounded-lg bg-[#161B30] hover:bg-[#1E2540] text-white cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
-      )}
+
+        {currentPreviewSlide ? (
+          <div className="relative bg-gradient-to-br from-[#0B0F1F] via-[#141A35] to-[#1C244B] border-2 border-[#D4AF37]/40 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[300px]">
+              <div className="lg:col-span-8 relative h-60 sm:h-72 bg-[#0D1120] overflow-hidden flex items-center justify-center">
+                <img
+                  src={currentPreviewSlide.url}
+                  alt={currentPreviewSlide.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1F] via-transparent to-transparent" />
+                {currentPreviewSlide.category && (
+                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-[#171852]/90 border border-[#D4AF37]/60 text-[#FFF000] text-[10px] font-mono font-bold uppercase">
+                    {currentPreviewSlide.category}
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:col-span-4 p-5 flex flex-col justify-center space-y-3 bg-[#0F1428]/95 border-t lg:border-t-0 lg:border-l border-[#263352]">
+                <div className="text-[11px] text-[#D4AF37] font-mono font-bold uppercase">
+                  Verified Showcase
+                </div>
+                <h4 className="font-editorial text-lg font-bold text-white leading-snug">
+                  {currentPreviewSlide.title || "Institutional Facility Showcase"}
+                </h4>
+                <div className="w-10 h-0.5 bg-[#FFF000]" />
+                <p className="text-xs text-stone-300 font-prose-serif leading-relaxed">
+                  {currentPreviewSlide.caption || "Empowering students through high standard educational facilities."}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center text-stone-400 text-xs bg-[#161B30] rounded-xl">
+            No active slides to display in preview.
+          </div>
+        )}
+      </div>
 
       {/* 6. Edit Slide Modal */}
       {editingSlide && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#111628] border-2 border-[#D4AF37]/50 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 text-white">
-            <div className="flex items-center justify-between border-b border-[#263352] pb-3">
-              <h3 className="font-editorial text-lg font-bold text-[#FFF000]">
-                Edit Slide Metadata
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#0F1424] border border-[#263352] rounded-2xl p-6 space-y-4 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
+              <h3 className="font-editorial text-lg font-bold flex items-center gap-2">
+                <span>Edit Slide Metadata</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setEditingSlide(null)}
-                className="p-1 text-stone-400 hover:text-white rounded-lg"
+                className="p-1 rounded text-stone-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div className="space-y-3.5">
               <div>
-                <label className="block font-semibold mb-1">Slide Title</label>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">Slide Title</label>
                 <input
                   type="text"
                   value={editingSlide.title || ''}
                   onChange={(e) => setEditingSlide({ ...editingSlide, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-white focus:outline-hidden focus:border-[#FFF000]"
+                  className="w-full px-3 py-2 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white focus:outline-hidden focus:border-[#FFF000]"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold mb-1">Category Badge</label>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">Category Badge</label>
                 <input
                   type="text"
                   value={editingSlide.category || ''}
                   onChange={(e) => setEditingSlide({ ...editingSlide, category: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-white focus:outline-hidden focus:border-[#FFF000]"
+                  className="w-full px-3 py-2 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white focus:outline-hidden focus:border-[#FFF000]"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold mb-1">Caption / Summary</label>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">Caption / Description</label>
                 <textarea
                   rows={3}
                   value={editingSlide.caption || ''}
                   onChange={(e) => setEditingSlide({ ...editingSlide, caption: e.target.value })}
-                  className="w-full px-3 py-2 bg-[#0F1424] border border-[#263352] rounded-xl text-white focus:outline-hidden focus:border-[#FFF000]"
+                  className="w-full px-3 py-2 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white focus:outline-hidden focus:border-[#FFF000]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1">Image URL</label>
+                <input
+                  type="url"
+                  value={editingSlide.url}
+                  onChange={(e) => setEditingSlide({ ...editingSlide, url: e.target.value })}
+                  className="w-full px-3 py-2 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white font-mono focus:outline-hidden focus:border-[#FFF000]"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#263352]">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1E293B]">
               <button
                 type="button"
                 onClick={() => setEditingSlide(null)}
-                className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 font-semibold text-xs cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-300 hover:text-white bg-[#161B30] cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleSaveEditedSlide}
-                className="px-5 py-2 rounded-xl bg-[#FFF000] hover:bg-[#F5D900] text-[#171852] font-bold text-xs cursor-pointer shadow-md"
+                onClick={handleSaveEditModal}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-[#171852] bg-[#FFF000] hover:bg-[#F5D900] cursor-pointer shadow-md"
               >
                 Save Changes
               </button>

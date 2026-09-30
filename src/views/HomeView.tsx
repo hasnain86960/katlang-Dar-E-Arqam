@@ -66,14 +66,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
               </span>
             </div>
 
-            {/* Central Round Logo */}
-            <div className="p-1 sm:p-1.5 md:p-2 bg-[#171852] rounded-full shadow-lg ring-2 ring-[#FFF000]/40 transition-transform hover:scale-105 shrink-0 z-10">
-              <div className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden bg-white shadow-inner flex items-center justify-center select-none">
+            {/* Central Round Logo (Sleek, Ultra-Slim Smart Outline, No Thick White Padding) */}
+            <div className="rounded-full shadow-2xl ring-1 ring-[#FFF000]/60 transition-transform hover:scale-105 shrink-0 z-10 overflow-hidden bg-transparent">
+              <div className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden flex items-center justify-center select-none">
                 {logoUrl ? (
                   <img
                     src={logoUrl}
                     alt="DAR - E - ARQAM Official Emblem"
-                    className="w-full h-full object-contain p-1 sm:p-1.5 select-none"
+                    className="w-full h-full object-contain select-none"
                     loading="eager"
                   />
                 ) : (

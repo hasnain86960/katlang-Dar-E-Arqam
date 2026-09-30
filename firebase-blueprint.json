@@ -45,34 +45,39 @@
     },
     "Student": {
       "title": "Student",
-      "description": "Enrolled student profile and academic dossier",
+      "description": "Enrolled student profile and identity record",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "studentId": { "type": "string" },
-        "rollNumber": { "type": "string" },
-        "name": { "type": "string" },
+        "fullName": { "type": "string" },
         "fatherName": { "type": "string" },
-        "dob": { "type": "string" },
-        "gender": { "type": "string" },
-        "bForm": { "type": "string" },
-        "bloodGroup": { "type": "string" },
-        "className": { "type": "string" },
-        "section": { "type": "string" },
-        "session": { "type": "string" },
-        "status": { "type": "string" },
-        "guardianContact": { "type": "string" },
-        "guardianEmail": { "type": "string" },
-        "residentialAddress": { "type": "string" },
-        "emergencyContact": { "type": "string" },
-        "attendancePercentage": { "type": "number" },
-        "totalWorkingDays": { "type": "number" },
-        "presentDays": { "type": "number" },
-        "leavesSanctioned": { "type": "number" },
-        "unexcusedAbsences": { "type": "number" },
-        "createdAt": { "type": "string" }
+        "className": { 
+          "type": "string",
+          "enum": [
+            "Play Group",
+            "Nursery",
+            "Prep",
+            "Class 1",
+            "Class 2",
+            "Class 3",
+            "Class 4",
+            "Class 5",
+            "Class 6",
+            "Class 7",
+            "Class 8",
+            "Class 9",
+            "Class 10"
+          ]
+        },
+        "rollNumber": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
+        "email": { "type": "string" },
+        "profileImageUrl": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["uid", "studentId", "name", "fatherName", "className", "guardianEmail"]
+      "required": ["uid", "fullName", "fatherName", "className", "rollNumber", "whatsappNumber", "email"]
     },
     "AdmissionApplication": {
       "title": "AdmissionApplication",
@@ -111,6 +116,25 @@
         "createdAt": { "type": "string" }
       },
       "required": ["inquiryId", "name", "email", "category", "subject", "message"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Student attendance scan event record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "studentName": { "type": "string" },
+        "className": { "type": "string" },
+        "rollNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "status": { "type": "string", "enum": ["present", "late", "absent"] },
+        "gateId": { "type": "string" },
+        "recordedBy": { "type": "string" },
+        "qrTokenId": { "type": "string" }
+      },
+      "required": ["studentUid", "date", "timestamp", "status", "qrTokenId"]
     }
   },
   "firestore": {
@@ -133,6 +157,13 @@
     "/inquiries/{inquiryDocId}": {
       "schema": "Inquiry",
       "description": "Public contact messages and support inquiries"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "AttendanceRecord",
+      "description": "E-Attendance scan logs and entry records"
+    },
+    "/qr_tokens/{tokenId}": {
+      "description": "Index mapping permanent QR tokens to student UIDs"
     }
   }
 }
