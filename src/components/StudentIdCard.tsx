@@ -232,14 +232,22 @@ export const StudentIdCard: React.FC<StudentIdCardProps> = ({
             {/* 2. Dynamic Profile Picture */}
             {fields.profilePicture && fields.profilePicture.visible !== false && (
               <div
-                className="absolute overflow-hidden shadow-md flex items-center justify-center group"
+                className={`absolute overflow-hidden shadow-md flex items-center justify-center group ${
+                  fields.profilePicture.shape === 'circle' ? 'rounded-full aspect-square' : 'aspect-square'
+                }`}
                 style={{
                   left: `${fields.profilePicture.x}%`,
                   top: `${fields.profilePicture.y}%`,
                   width: `${fields.profilePicture.width}%`,
-                  height: (fields.profilePicture.shape === 'circle' || fields.profilePicture.shape === 'square') ? undefined : `${fields.profilePicture.height}%`,
-                  aspectRatio: (fields.profilePicture.shape === 'circle' || fields.profilePicture.shape === 'square') ? '1 / 1' : undefined,
-                  borderRadius: fields.profilePicture.shape === 'circle' ? '9999px' : `${fields.profilePicture.borderRadius || 12}px`,
+                  height: (fields.profilePicture.shape === 'circle' || fields.profilePicture.shape === 'square' || fields.profilePicture.shape === 'rounded') 
+                    ? `${fields.profilePicture.width * (activeTemplate.aspectRatio || 0.625)}%` 
+                    : `${fields.profilePicture.height}%`,
+                  aspectRatio: (fields.profilePicture.shape === 'circle' || fields.profilePicture.shape === 'square' || fields.profilePicture.shape === 'rounded') ? '1 / 1' : undefined,
+                  borderRadius: fields.profilePicture.shape === 'circle' 
+                    ? '9999px' 
+                    : fields.profilePicture.shape === 'rounded'
+                    ? `${fields.profilePicture.borderRadius ?? 16}px`
+                    : '0px',
                   border: `${fields.profilePicture.borderWidth || 2}px solid ${fields.profilePicture.borderColor || '#20216B'}`,
                   isolation: 'isolate',
                 }}
@@ -250,7 +258,11 @@ export const StudentIdCard: React.FC<StudentIdCardProps> = ({
                     alt={student.fullName}
                     className="w-full h-full object-cover pointer-events-none select-none"
                     style={{
-                      borderRadius: fields.profilePicture.shape === 'circle' ? '9999px' : `${fields.profilePicture.borderRadius || 12}px`,
+                      borderRadius: fields.profilePicture.shape === 'circle' 
+                        ? '9999px' 
+                        : fields.profilePicture.shape === 'rounded'
+                        ? `${fields.profilePicture.borderRadius ?? 16}px`
+                        : '0px',
                     }}
                   />
                 ) : (

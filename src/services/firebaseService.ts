@@ -743,7 +743,7 @@ export async function getStudentProfile(uid: string): Promise<StudentProfile | n
   try {
     const snap = await getDoc(doc(db, 'students', uid));
     if (snap.exists()) {
-      const data = snap.data() as StudentProfile;
+      const data = { ...(snap.data() as StudentProfile), uid: snap.id };
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem(LOCAL_STORAGE_CURRENT_STUDENT_KEY, JSON.stringify(data));
@@ -752,8 +752,24 @@ export async function getStudentProfile(uid: string): Promise<StudentProfile | n
       return data;
     }
   } catch (err) {
-    console.debug('Firestore getStudentProfile fallback to local cache:', err);
+    console.debug('Firestore getStudentProfile fallback:', err);
   }
+
+  // Fallback: query collection by uid field
+  try {
+    const q = query(collection(db, 'students'), where('uid', '==', uid));
+    const qSnap = await getDocs(q);
+    if (!qSnap.empty) {
+      const docSnap = qSnap.docs[0];
+      const data = { ...(docSnap.data() as StudentProfile), uid: docSnap.id };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_CURRENT_STUDENT_KEY, JSON.stringify(data));
+        } catch {}
+      }
+      return data;
+    }
+  } catch {}
 
   // Fallback to local cache
   if (typeof window !== 'undefined') {
@@ -761,7 +777,7 @@ export async function getStudentProfile(uid: string): Promise<StudentProfile | n
       const cached = localStorage.getItem(LOCAL_STORAGE_CURRENT_STUDENT_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed.uid === uid) return parsed;
+        if (parsed.uid === uid || parsed.email === uid) return parsed;
       }
     } catch {}
   }

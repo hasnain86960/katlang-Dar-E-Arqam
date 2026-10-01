@@ -7,11 +7,7 @@ import {
   DEFAULT_GALLERY_SLIDES,
   HomepageGalleryState 
 } from '../../services/firebaseService';
-import { 
-  processAndUploadGalleryImage,
-  preloadGalleryImage 
-} from '../../services/imageOptimizationService';
-import { deleteFromCloudinary } from '../../services/cloudinaryService';
+import { deleteFromCloudinary, uploadToCloudinary } from '../../services/cloudinaryService';
 import { 
   Upload, 
   Plus, 
@@ -111,7 +107,7 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
     }
   };
 
-  // Convert & optimize files to modern WebP format with micro thumbnails and upload to Firebase
+  // Direct upload of original files without client-side compression or processing
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -140,7 +136,7 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
     }
 
     setIsUploadingFiles(true);
-    setUploadStage('processing');
+    setUploadStage('uploading');
     setUploadProgress(0);
 
     const newUploadedSlides: GallerySlide[] = [];
@@ -152,36 +148,23 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
         const file = validFiles[i];
         const stepBase = Math.round((i / total) * 100);
         setUploadProgress(stepBase);
-        setUploadStageText(`Processing & optimizing (${i + 1}/${total}): ${file.name}`);
+        setUploadStageText(`Uploading original file (${i + 1}/${total}): ${file.name}`);
 
         try {
-          // High-performance image optimization & WebP encoding pipeline with timeout protection
-          const opt = await processAndUploadGalleryImage(file, {
-            maxWidth: 1920,
-            maxHeight: 1080,
-            quality: 0.84,
-            onStageChange: (stage) => {
-              if (stage === 'uploading') {
-                setUploadStage('uploading');
-                setUploadStageText(`Uploading to Cloudinary CDN (${i + 1}/${total}): ${file.name}`);
-              } else if (stage === 'processing') {
-                setUploadStage('processing');
-                setUploadStageText(`Compressing & Optimizing (${i + 1}/${total}): ${file.name}`);
-              }
-            }
-          });
+          const res = await uploadToCloudinary(file, { folder: 'dare_arqam_gallery' });
+          if (!res.success || !res.url) {
+            throw new Error(res.error || 'Upload failed');
+          }
 
           const newSlide: GallerySlide = {
             id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            url: opt.url,
-            thumbnailUrl: opt.thumbnailUrl,
-            publicId: opt.publicId,
-            width: opt.width,
-            height: opt.height,
-            aspectRatio: opt.aspectRatio,
-            fileSizeKB: opt.fileSizeKB,
-            originalSizeKB: opt.originalSizeKB,
-            format: opt.format,
+            url: res.url,
+            publicId: res.publicId,
+            width: res.width,
+            height: res.height,
+            aspectRatio: res.width && res.height ? res.width / res.height : 1.7778,
+            fileSizeKB: res.bytes ? Math.round(res.bytes / 1024) : Math.round(file.size / 1024),
+            format: res.format || file.type.split('/')[1] || 'jpeg',
             title: file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '),
             category: 'Campus Infrastructure',
             caption: 'Institutional facilities and scholastic activities at DAR - E - ARQAM.',
@@ -193,13 +176,12 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
           newUploadedSlides.push(newSlide);
           setUploadProgress(Math.round(((i + 1) / total) * 100));
         } catch (itemErr: any) {
-          console.error(`Error processing image ${file.name}:`, itemErr);
-          itemErrors.push(`${file.name}: ${itemErr?.message || 'Processing failed'}`);
+          console.error(`Error uploading ${file.name}:`, itemErr);
+          itemErrors.push(`${file.name}: ${itemErr?.message || 'Upload failed'}`);
         }
       }
 
       if (newUploadedSlides.length > 0) {
-        setUploadStage('uploading');
         setUploadStageText('Saving updates to Firestore...');
         const combined = [...slides, ...newUploadedSlides];
         setSlides(combined);
@@ -227,33 +209,20 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
     }
   };
 
-  // Add slide via URL with automatic optimization & metadata extraction
+  // Add slide directly via URL without processing
   const handleAddViaUrl = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newImageUrl.trim()) return;
 
     setIsUploadingFiles(true);
-    setUploadStage('processing');
-    setUploadStageText('Optimizing and validating web image URL...');
+    setUploadStage('uploading');
+    setUploadStageText('Saving image URL to gallery...');
     setUploadError(null);
 
     try {
-      const opt = await processAndUploadGalleryImage(newImageUrl.trim(), {
-        maxWidth: 1920,
-        maxHeight: 1080,
-        quality: 0.84,
-      });
-
       const newSlide: GallerySlide = {
         id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        url: opt.url,
-        thumbnailUrl: opt.thumbnailUrl,
-        width: opt.width,
-        height: opt.height,
-        aspectRatio: opt.aspectRatio,
-        fileSizeKB: opt.fileSizeKB,
-        originalSizeKB: opt.originalSizeKB,
-        format: opt.format,
+        url: newImageUrl.trim(),
         title: newTitle.trim() || 'Institutional Facility Showcase',
         category: newCategory.trim() || 'Campus Facilities',
         caption: newCaption.trim() || 'Modern academic and infrastructure facilities.',
@@ -267,8 +236,6 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
       setNewImageUrl('');
       setNewTitle('');
       setNewCaption('');
-      setUploadStage('uploading');
-      setUploadStageText('Saving to Firestore...');
 
       await handleSaveAll(updated, settings);
       setUploadStage('completed');
@@ -278,29 +245,9 @@ export const HomepageGalleryManager: React.FC<HomepageGalleryManagerProps> = ({
         setUploadStageText('');
       }, 3500);
     } catch (err: any) {
-      console.warn('Fallback adding raw URL directly:', err);
-      const fallbackSlide: GallerySlide = {
-        id: `slide_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        url: newImageUrl.trim(),
-        title: newTitle.trim() || 'Institutional Facility Showcase',
-        category: newCategory.trim() || 'Campus Facilities',
-        caption: newCaption.trim() || 'Modern academic and infrastructure facilities.',
-        order: slides.length + 1,
-        enabled: true,
-        createdAt: new Date().toISOString(),
-      };
-      const updated = [...slides, fallbackSlide];
-      setSlides(updated);
-      setNewImageUrl('');
-      setNewTitle('');
-      setNewCaption('');
-      await handleSaveAll(updated, settings);
-      setUploadStage('completed');
-      setUploadStageText('Image added directly to gallery!');
-      setTimeout(() => {
-        setUploadStage('idle');
-        setUploadStageText('');
-      }, 3500);
+      console.error('Failed to add image via URL:', err);
+      setUploadStage('error');
+      setUploadError(err?.message || 'Failed to save image URL. Please try again.');
     } finally {
       setIsUploadingFiles(false);
     }

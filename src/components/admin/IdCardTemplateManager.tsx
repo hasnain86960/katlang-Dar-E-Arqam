@@ -529,9 +529,11 @@ export const IdCardTemplateManager: React.FC<IdCardTemplateManagerProps> = ({
     let newW = Math.max(8, Math.min(100 - currentConfig.x, resizeFrontStartPosRef.current.startW + deltaW));
     let newH = Math.max(3, Math.min(100 - currentConfig.y, resizeFrontStartPosRef.current.startH + deltaH));
 
-    if (fieldKey === 'profilePicture' && (lockPhotoRatio || currentConfig.shape === 'circle')) {
+    if (fieldKey === 'profilePicture' && (lockPhotoRatio || currentConfig.shape === 'circle' || currentConfig.shape === 'square' || currentConfig.shape === 'rounded')) {
       const cardAspectRatio = editingTemplate.aspectRatio || 0.625;
-      newH = (newW / cardAspectRatio) * (currentConfig.shape === 'circle' ? cardAspectRatio : 1.15 * cardAspectRatio);
+      newH = (currentConfig.shape === 'circle' || currentConfig.shape === 'square' || currentConfig.shape === 'rounded') 
+        ? newW * cardAspectRatio 
+        : newW * (1.15 * cardAspectRatio);
       newH = Math.min(100 - currentConfig.y, newH);
     }
 
@@ -1203,19 +1205,22 @@ export const IdCardTemplateManager: React.FC<IdCardTemplateManagerProps> = ({
                       // Display value for preview/editing
                       let displayContent: React.ReactNode = null;
                       if (fieldKey === 'profilePicture') {
-                        const shapeClass = cfg.shape === 'circle' ? 'rounded-full' : cfg.shape === 'rounded' ? 'rounded-xl' : 'rounded-none';
+                        const isCircle = cfg.shape === 'circle';
+                        const isRounded = cfg.shape === 'rounded';
+                        const shapeClass = isCircle ? 'rounded-full' : isRounded ? 'rounded-xl' : 'rounded-none';
+                        const effectiveRadius = isCircle ? '9999px' : isRounded ? `${cfg.borderRadius ?? 16}px` : '0px';
                         displayContent = (
                           <div
                             className={`w-full h-full overflow-hidden flex items-center justify-center bg-slate-200 ${shapeClass}`}
                             style={{
-                              borderRadius: cfg.shape === 'circle' ? '9999px' : `${cfg.borderRadius ?? 14}px`,
+                              borderRadius: effectiveRadius,
                               border: `${cfg.borderWidth ?? 3}px solid ${cfg.borderColor ?? '#20216B'}`,
                             }}
                           >
                             <img
                               src={currentDemo.profileImageUrl}
                               alt="Student"
-                              className="w-full h-full object-cover pointer-events-none"
+                              className="w-full h-full object-cover pointer-events-none select-none"
                             />
                           </div>
                         );
@@ -1249,20 +1254,41 @@ export const IdCardTemplateManager: React.FC<IdCardTemplateManagerProps> = ({
                         );
                       }
 
+                      const isProfile = fieldKey === 'profilePicture';
+                      const isCircleProfile = isProfile && cfg.shape === 'circle';
+                      const isSquareProfile = isProfile && cfg.shape === 'square';
+                      const isRoundedProfile = isProfile && cfg.shape === 'rounded';
+                      const is1to1Profile = isProfile && (isCircleProfile || isSquareProfile || isRoundedProfile);
+                      const cardAspect = editingTemplate.aspectRatio || 0.625;
+                      const calculatedHeight = is1to1Profile
+                        ? `${cfg.width * cardAspect}%`
+                        : `${cfg.height}%`;
+                      const computedBorderRadius = isCircleProfile 
+                        ? '9999px' 
+                        : isRoundedProfile 
+                        ? `${cfg.borderRadius ?? 16}px` 
+                        : isSquareProfile
+                        ? '0px'
+                        : undefined;
+
                       return (
                         <div
                           key={fieldKey}
                           onMouseDown={(e) => handleFrontFieldMouseDown(e, fieldKey)}
                           className={`absolute cursor-move transition-shadow z-20 group ${
+                            isCircleProfile ? 'rounded-full aspect-square' : is1to1Profile ? 'aspect-square' : ''
+                          } ${
                             isSelected
-                              ? 'ring-2 ring-[#FFF000] ring-offset-1 ring-offset-black/40 bg-[#FFF000]/10'
-                              : 'hover:ring-1 hover:ring-cyan-400/80'
+                              ? `ring-2 ring-[#FFF000] ring-offset-1 ring-offset-black/40 bg-[#FFF000]/10 ${isCircleProfile ? 'rounded-full' : ''}`
+                              : `hover:ring-1 hover:ring-cyan-400/80 ${isCircleProfile ? 'rounded-full' : ''}`
                           }`}
                           style={{
                             left: `${cfg.x}%`,
                             top: `${cfg.y}%`,
                             width: `${cfg.width}%`,
-                            height: `${cfg.height}%`,
+                            height: calculatedHeight,
+                            aspectRatio: is1to1Profile ? '1 / 1' : undefined,
+                            borderRadius: computedBorderRadius,
                           }}
                         >
                           {displayContent}
@@ -1452,7 +1478,9 @@ export const IdCardTemplateManager: React.FC<IdCardTemplateManagerProps> = ({
                           updateFrontFieldProp(selectedFrontField, 'width', Math.round(newW * 10) / 10);
                           if (selectedFrontField === 'profilePicture') {
                             const cardAspect = editingTemplate.aspectRatio || 0.625;
-                            const newH = selectedFrontConfig.shape === 'circle' ? newW : newW * (1.15 * cardAspect);
+                            const newH = (selectedFrontConfig.shape === 'circle' || selectedFrontConfig.shape === 'square' || selectedFrontConfig.shape === 'rounded') 
+                              ? newW * cardAspect 
+                              : newW * (1.15 * cardAspect);
                             updateFrontFieldProp('profilePicture', 'height', Math.round(newH * 10) / 10);
                           }
                         }}
@@ -1464,25 +1492,109 @@ export const IdCardTemplateManager: React.FC<IdCardTemplateManagerProps> = ({
                   {/* Profile Picture Specific Properties */}
                   {selectedFrontField === 'profilePicture' ? (
                     <div className="space-y-3 pt-2 border-t border-[#243050]">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-mono text-slate-400 block">Avatar Shape</label>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-mono text-slate-400 block">Avatar Shape</label>
+                          <span className="text-[9px] font-mono text-[#FFF000] bg-[#20216B] px-1.5 py-0.5 rounded border border-[#D4AF37]/50 font-bold">
+                            {selectedFrontConfig.shape === 'circle' ? '1:1 Circular Ratio' : selectedFrontConfig.shape === 'square' ? '1:1 Square Ratio' : '1:1 Smooth Rounded Square'}
+                          </span>
+                        </div>
                         <div className="grid grid-cols-3 gap-1.5">
                           {(['square', 'rounded', 'circle'] as const).map((s) => (
                             <button
                               key={s}
                               type="button"
-                              onClick={() => updateFrontFieldProp('profilePicture', 'shape', s)}
+                              onClick={() => {
+                                updateFrontFieldProp('profilePicture', 'shape', s);
+                                const cardAspect = editingTemplate.aspectRatio || 0.625;
+                                if (s === 'circle') {
+                                  updateFrontFieldProp('profilePicture', 'borderRadius', 9999);
+                                  updateFrontFieldProp('profilePicture', 'height', Math.round(selectedFrontConfig.width * cardAspect * 10) / 10);
+                                } else if (s === 'square') {
+                                  updateFrontFieldProp('profilePicture', 'borderRadius', 0);
+                                  updateFrontFieldProp('profilePicture', 'height', Math.round(selectedFrontConfig.width * cardAspect * 10) / 10);
+                                } else if (s === 'rounded') {
+                                  const curR = selectedFrontConfig.borderRadius;
+                                  const safeRadius = (typeof curR === 'number' && curR > 0 && curR <= 50) ? curR : 16;
+                                  updateFrontFieldProp('profilePicture', 'borderRadius', safeRadius);
+                                  updateFrontFieldProp('profilePicture', 'height', Math.round(selectedFrontConfig.width * cardAspect * 10) / 10);
+                                }
+                              }}
                               className={`py-1.5 px-2 rounded-lg text-xs font-mono font-bold capitalize transition-all cursor-pointer ${
                                 selectedFrontConfig.shape === s
                                   ? 'bg-[#20216B] text-[#FFF000] border border-[#D4AF37]'
                                   : 'bg-[#1C2546] text-slate-300 hover:text-white'
                               }`}
                             >
-                              {s}
+                              {s === 'rounded' ? 'Rounded' : s}
                             </button>
                           ))}
                         </div>
+
+                        {/* Snap to Perfect 1:1 Circle Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cardAspect = editingTemplate.aspectRatio || 0.625;
+                            updateFrontFieldProp('profilePicture', 'shape', 'circle');
+                            updateFrontFieldProp('profilePicture', 'borderRadius', 9999);
+                            updateFrontFieldProp('profilePicture', 'borderWidth', selectedFrontConfig.borderWidth ?? 3);
+                            updateFrontFieldProp('profilePicture', 'height', Math.round(selectedFrontConfig.width * cardAspect * 10) / 10);
+                          }}
+                          className="w-full mt-1.5 py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold bg-[#20216B] hover:bg-[#2C2E85] text-[#FFF000] border border-[#D4AF37]/70 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                        >
+                          <Check className="w-3.5 h-3.5 text-[#FFF000]" />
+                          <span>Snap to Perfect 1:1 Circle Frame</span>
+                        </button>
                       </div>
+
+                      {/* Corner Roundness Slider (Shown specifically when 'rounded' is chosen) */}
+                      {selectedFrontConfig.shape === 'rounded' && (
+                        <div className="p-3 bg-[#171D36] rounded-xl border border-[#3A4B75] space-y-2.5 animate-in fade-in">
+                          <div className="flex items-center justify-between text-xs font-mono">
+                            <span className="text-[#FFF000] font-bold flex items-center gap-1.5">
+                              <Sliders className="w-3.5 h-3.5 text-[#FFF000]" />
+                              <span>Corner Roundness (Border Radius)</span>
+                            </span>
+                            <span className="text-white font-bold bg-[#0B0E1B] px-2 py-0.5 rounded border border-[#3A4B75]">
+                              {selectedFrontConfig.borderRadius ?? 16}px
+                            </span>
+                          </div>
+
+                          <input
+                            type="range"
+                            min="2"
+                            max="50"
+                            step="1"
+                            value={selectedFrontConfig.borderRadius ?? 16}
+                            onChange={(e) => updateFrontFieldProp('profilePicture', 'borderRadius', parseInt(e.target.value, 10))}
+                            className="w-full accent-[#FFF000] bg-[#0B0E1B] cursor-pointer"
+                          />
+
+                          {/* Quick Corner Presets */}
+                          <div className="flex items-center justify-between gap-1 pt-0.5">
+                            {[
+                              { label: 'Slight', val: 6 },
+                              { label: 'Smooth', val: 14 },
+                              { label: 'Medium', val: 22 },
+                              { label: 'Soft Pill', val: 32 },
+                            ].map((preset) => (
+                              <button
+                                key={preset.val}
+                                type="button"
+                                onClick={() => updateFrontFieldProp('profilePicture', 'borderRadius', preset.val)}
+                                className={`flex-1 py-1 px-1.5 text-[10px] font-mono rounded transition-colors cursor-pointer text-center ${
+                                  (selectedFrontConfig.borderRadius ?? 16) === preset.val
+                                    ? 'bg-[#FFF000] text-[#0B0E1B] font-bold shadow-xs'
+                                    : 'bg-[#141A32] text-slate-300 hover:text-white border border-[#263352]'
+                                }`}
+                              >
+                                {preset.label} ({preset.val}px)
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Border Width & Color */}
                       <div className="grid grid-cols-2 gap-2">
