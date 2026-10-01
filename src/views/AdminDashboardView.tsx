@@ -74,6 +74,12 @@ import { LogoCustomizerModal } from '../components/admin/LogoCustomizerModal';
 import { HomepageGalleryManager } from '../components/admin/HomepageGalleryManager';
 import { AdminClassManager } from '../components/admin/AdminClassManager';
 import { IdCardTemplateManager } from '../components/admin/IdCardTemplateManager';
+import { 
+  processSquareLogoFromSrc, 
+  saveWebsiteLogo, 
+  revertWebsiteLogoToDefault,
+  useWebsiteLogo 
+} from '../services/brandingManager';
 
 interface AdminDashboardViewProps {
   onNavigate: (page: PageId) => void;
@@ -212,6 +218,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
   // Tab 1: Logo, Banner & Branding State
   // ----------------------------------------------------
   const [tempLogoUrl, setTempLogoUrl] = useState<string>(logoUrl || '');
+  const [logoPreviewSrc, setLogoPreviewSrc] = useState<string>('');
+  const [logoCropZoom, setLogoCropZoom] = useState<number>(1.0);
+  const [isLogoDragOver, setIsLogoDragOver] = useState<boolean>(false);
+  const logoFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [tempBannerUrl, setTempBannerUrl] = useState<string>(bannerUrl || '');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
@@ -383,15 +393,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
   };
 
   // ----------------------------------------------------
-  // Logo Upload & Customizer (Zoom / Rotate / Tilt / Crop & Cloudinary CDN)
+  // Logo Upload, Drag & Drop, 1:1 Aspect Crop & Persistence
   // ----------------------------------------------------
-  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processSelectedLogoFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', 'Please upload a valid image file (PNG, JPG, WebP, SVG).');
+      return;
+    }
 
-    // Validate size (max 12MB for high resolution raw image)
-    if (file.size > 12 * 1024 * 1024) {
-      showNotification('error', 'File size exceeds 12MB limit. Please upload an image under 12MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      showNotification('error', 'File size exceeds 15MB limit. Please upload an image under 15MB.');
       return;
     }
 
@@ -399,16 +410,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
     reader.onload = (event) => {
       const result = event.target?.result as string;
       if (result) {
-        setCustomizerImageSrc(result);
-        setIsCustomizerOpen(true);
+        setLogoPreviewSrc(result);
+        setTempLogoUrl(result);
+        setLogoCropZoom(1.0);
+        showNotification('info', 'Logo image loaded! Adjust the 1:1 preview/crop slider and click Save.');
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processSelectedLogoFile(file);
     e.target.value = '';
   };
 
+  const handleLogoDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsLogoDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processSelectedLogoFile(file);
+    }
+  };
+
   const handleOpenCustomizer = (srcToEdit?: string) => {
-    const targetSrc = srcToEdit || tempLogoUrl;
+    const targetSrc = srcToEdit || logoPreviewSrc || tempLogoUrl;
     if (!targetSrc) {
       showNotification('info', 'Please select or upload an image file first.');
       return;
@@ -417,25 +445,66 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
     setIsCustomizerOpen(true);
   };
 
-  const handleApplyCustomizedLogo = (croppedUrl: string) => {
+  const handleApplyCustomizedLogo = async (croppedUrl: string) => {
     setTempLogoUrl(croppedUrl);
-    showNotification('success', 'Customized logo saved to Cloudinary CDN! Click "Save & Apply Website-Wide" to publish.');
+    setLogoPreviewSrc(croppedUrl);
+    try {
+      await saveWebsiteLogo(croppedUrl);
+      await updateLogo(croppedUrl);
+      await updateBrandingDetails(tempInstName, tempTagline);
+      showNotification('success', 'Official institutional logo permanently saved & broadcasted real-time across all components!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to publish logo website-wide.');
+    }
   };
 
   const handleApplyLogo = async () => {
-    if (!tempLogoUrl.trim()) {
-      showNotification('error', 'Please upload or specify a logo first.');
+    const activeSrc = logoPreviewSrc || tempLogoUrl;
+    if (!activeSrc.trim()) {
+      showNotification('error', 'Please select or upload a logo image first.');
       return;
     }
-    await updateLogo(tempLogoUrl);
-    await updateBrandingDetails(tempInstName, tempTagline);
-    showNotification('success', 'Custom institutional logo updated and published website-wide in high resolution!');
+
+    setIsUploadingLogo(true);
+    showNotification('info', 'Processing 1:1 square master logo and synchronizing...');
+    try {
+      // 1. Process 1:1 ultra-sharp square crop (512x512)
+      let squareUrl = activeSrc;
+      try {
+        squareUrl = await processSquareLogoFromSrc(activeSrc, 512, logoCropZoom);
+      } catch (procErr) {
+        console.warn('Canvas crop fallback notice:', procErr);
+      }
+
+      // 2. Save via universal brandingManager
+      await saveWebsiteLogo(squareUrl);
+      await updateLogo(squareUrl);
+      await updateBrandingDetails(tempInstName, tempTagline);
+
+      setTempLogoUrl(squareUrl);
+      setLogoPreviewSrc(squareUrl);
+      showNotification('success', 'Website logo permanently saved & synchronized in real-time across all devices!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to update logo.');
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   const handleResetToDefaultLogo = async () => {
-    await resetLogo();
-    setTempLogoUrl('');
-    showNotification('info', 'Institutional logo restored to default vector emblem.');
+    setIsUploadingLogo(true);
+    try {
+      await revertWebsiteLogoToDefault();
+      await resetLogo();
+      setTempLogoUrl('/branding/logo.png');
+      setLogoPreviewSrc('');
+      setLogoCropZoom(1.0);
+      showNotification('info', 'Website logo reverted to default institutional emblem.');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to revert logo.');
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   // ----------------------------------------------------
@@ -1389,11 +1458,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-2">
-                  {/* Left: Upload and URL controls */}
+                  {/* Left: Drag & Drop Upload, 1:1 Aspect Crop Slider, URL controls */}
                   <div className="lg:col-span-7 space-y-5">
-                    {/* File Upload Box */}
-                    <div className="border-2 border-dashed border-stone-700 hover:border-[#F5D900] rounded-xl p-6 text-center transition-colors bg-stone-900/50 relative">
+                    {/* Drag & Drop File Upload Box */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsLogoDragOver(true);
+                      }}
+                      onDragLeave={() => setIsLogoDragOver(false)}
+                      onDrop={handleLogoDrop}
+                      className={`border-2 border-dashed rounded-xl p-6 text-center transition-all bg-stone-900/50 relative cursor-pointer ${
+                        isLogoDragOver
+                          ? 'border-[#FFF000] bg-[#20216B]/40 neon-glow-gold scale-[1.01]'
+                          : 'border-stone-700 hover:border-[#F5D900]'
+                      }`}
+                    >
                       <input
+                        ref={logoFileInputRef}
                         type="file"
                         id="logo-file-input"
                         accept="image/png, image/jpeg, image/webp, image/svg+xml"
@@ -1404,25 +1486,93 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                         htmlFor="logo-file-input"
                         className="cursor-pointer block space-y-3"
                       >
-                        <div className="w-14 h-14 bg-[#20216B] border border-[#292A86] text-[#FFF000] rounded-full flex items-center justify-center mx-auto shadow-inner">
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto shadow-inner transition-all ${
+                          isLogoDragOver ? 'bg-[#FFF000] text-[#171852] scale-110' : 'bg-[#20216B] border border-[#292A86] text-[#FFF000]'
+                        }`}>
                           <Upload className="w-6 h-6" />
                         </div>
                         <div>
-                          <span className="text-xs sm:text-sm font-semibold text-[#FFF000] hover:underline">
-                            Click here to upload logo & launch visual customizer
+                          <span className="text-xs sm:text-sm font-semibold text-[#FFF000] hover:underline block">
+                            {isLogoDragOver ? 'Drop your logo image here' : 'Drag & Drop Logo Image or Click to Browse'}
                           </span>
                           <p className="text-[11px] text-[#94A3B8] mt-1 font-mono">
-                            Live Zoom In/Out, Pan/Drag, 360° Tilt/Rotate & Circular/Square Crop
+                            Supports PNG, JPG, WebP, SVG • Auto-converts to 1:1 (512x512) Ultra-Sharp
                           </p>
                         </div>
                       </label>
                     </div>
 
+                    {/* 1:1 Aspect Ratio Preview & Crop Zoom Slider */}
+                    {(logoPreviewSrc || tempLogoUrl) && (
+                      <div className="bg-stone-900 border border-stone-800 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-stone-300 flex items-center gap-1.5 font-mono">
+                            <Crop className="w-3.5 h-3.5 text-[#FFF000]" />
+                            1:1 Aspect Ratio Center-Crop & Zoom
+                          </span>
+                          <span className="font-mono text-[#FFF000] font-bold">
+                            {Math.round(logoCropZoom * 100)}%
+                          </span>
+                        </div>
+
+                        {/* Interactive Zoom Slider */}
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="3.0"
+                            step="0.05"
+                            value={logoCropZoom}
+                            onChange={(e) => setLogoCropZoom(parseFloat(e.target.value))}
+                            className="flex-1 accent-[#FFF000] h-2 bg-stone-700 rounded-lg cursor-pointer"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setLogoCropZoom(1.0)}
+                            className="text-[11px] px-2 py-1 rounded bg-stone-800 text-stone-300 hover:text-white font-mono cursor-pointer"
+                          >
+                            Reset 1x
+                          </button>
+                        </div>
+
+                        {/* Side-by-Side 1:1 Square & Circular Preview */}
+                        <div className="grid grid-cols-2 gap-4 pt-1 items-center">
+                          <div className="bg-stone-950 p-2.5 rounded-lg border border-stone-800 text-center space-y-1.5">
+                            <span className="text-[10px] font-mono text-stone-400 block uppercase">
+                              1:1 Square Crop (512x512)
+                            </span>
+                            <div className="w-20 h-20 mx-auto rounded-lg overflow-hidden border border-[#FFF000]/40 bg-[#171852] flex items-center justify-center relative shadow-sm">
+                              <img
+                                src={logoPreviewSrc || tempLogoUrl}
+                                alt="1:1 Square Preview"
+                                className="w-full h-full object-cover transition-transform select-none"
+                                style={{ transform: `scale(${logoCropZoom})` }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="bg-stone-950 p-2.5 rounded-lg border border-stone-800 text-center space-y-1.5">
+                            <span className="text-[10px] font-mono text-stone-400 block uppercase">
+                              Circular Emblem Preview
+                            </span>
+                            <div className="w-20 h-20 mx-auto rounded-full overflow-hidden ring-2 ring-[#FFF000] neon-glow-gold bg-[#171852] flex items-center justify-center relative shadow-sm">
+                              <img
+                                src={logoPreviewSrc || tempLogoUrl}
+                                alt="1:1 Circular Preview"
+                                className="w-full h-full object-cover transition-transform select-none"
+                                style={{ transform: `scale(${logoCropZoom})` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Or Enter Direct Logo Image URL */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-xs font-semibold text-stone-300 uppercase tracking-wider">
-                          Or Enter Logo Web URL (High-Res CDN or Cloud Image)
+                          Or Specify Direct Logo Image URL
                         </label>
                         {tempLogoUrl && (
                           <button
@@ -1430,8 +1580,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                             onClick={() => handleOpenCustomizer(tempLogoUrl)}
                             className="text-xs text-[#FFF000] hover:text-[#FFF000] font-semibold flex items-center gap-1 cursor-pointer"
                           >
-                            <Crop className="w-3.5 h-3.5" />
-                            <span>Customize & Crop Image</span>
+                            <Sliders className="w-3.5 h-3.5" />
+                            <span>Advanced Studio Customizer</span>
                           </button>
                         )}
                       </div>
@@ -1440,28 +1590,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                           type="url"
                           placeholder="https://your-domain.com/official-logo.png"
                           value={tempLogoUrl}
-                          onChange={(e) => setTempLogoUrl(e.target.value)}
+                          onChange={(e) => {
+                            setTempLogoUrl(e.target.value);
+                            setLogoPreviewSrc(e.target.value);
+                          }}
                           className="flex-1 px-3.5 py-2 text-xs sm:text-sm border border-stone-700 rounded-lg bg-stone-900 text-white focus:outline-hidden focus:ring-2 focus:ring-[#292A86] font-mono"
                         />
                         {tempLogoUrl && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenCustomizer(tempLogoUrl)}
-                              className="px-3 py-2 text-xs text-[#FFF000] bg-[#20216B] hover:bg-[#20216B] border border-[#292A86]/60 rounded-lg flex items-center gap-1.5 font-semibold cursor-pointer"
-                              title="Open interactive zoom/rotate/crop editor"
-                            >
-                              <Sliders className="w-3.5 h-3.5" />
-                              <span>Crop / Tilt</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setTempLogoUrl('')}
-                              className="px-3 py-2 text-xs text-stone-400 hover:text-white bg-stone-800 rounded-lg cursor-pointer"
-                            >
-                              Clear
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempLogoUrl('');
+                              setLogoPreviewSrc('');
+                            }}
+                            className="px-3 py-2 text-xs text-stone-400 hover:text-white bg-stone-800 rounded-lg cursor-pointer"
+                          >
+                            Clear
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1492,23 +1637,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ onNaviga
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
+                    {/* Action Buttons: Save Website Logo & Revert to Default */}
                     <div className="pt-3 flex flex-wrap items-center gap-3">
                       <button
                         type="button"
                         onClick={handleApplyLogo}
-                        className="px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-[#20216B] hover:bg-[#292A86] border border-[#F5D900]/40 rounded-lg transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+                        disabled={isUploadingLogo}
+                        className="px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-[#20216B] hover:bg-[#292A86] border border-[#F5D900]/40 rounded-lg transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 neon-glow-gold disabled:opacity-60"
                       >
-                        <Save className="w-4 h-4 text-[#FFF000]" />
-                        <span>Save & Apply Logo Website-Wide</span>
+                        {isUploadingLogo ? (
+                          <RefreshCw className="w-4 h-4 animate-spin text-[#FFF000]" />
+                        ) : (
+                          <Save className="w-4 h-4 text-[#FFF000]" />
+                        )}
+                        <span>Save Website Logo</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handleResetToDefaultLogo}
-                        className="px-4 py-2.5 text-xs font-medium text-stone-400 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-colors cursor-pointer"
+                        disabled={isUploadingLogo}
+                        className="px-4 py-2.5 text-xs font-medium text-stone-400 hover:text-white bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-lg transition-colors cursor-pointer disabled:opacity-60"
                       >
-                        Reset to Default Vector Emblem
+                        Revert to Default Logo
                       </button>
                     </div>
                   </div>

@@ -14,7 +14,11 @@ import {
   Moon, 
   Users, 
   Target, 
-  Handshake 
+  Handshake,
+  GraduationCap,
+  User,
+  Award,
+  ShieldCheck
 } from 'lucide-react';
 
 interface HomeViewProps {
@@ -66,19 +70,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
               </span>
             </div>
 
-            {/* Central Round Logo (Sleek, Ultra-Slim Smart Outline, No Thick White Padding) */}
-            <div className="rounded-full shadow-2xl ring-1 ring-[#FFF000]/60 transition-transform hover:scale-105 shrink-0 z-10 overflow-hidden bg-transparent">
-              <div className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden flex items-center justify-center select-none">
-                {logoUrl ? (
-                  <img
-                    src={logoUrl}
-                    alt="DAR - E - ARQAM Official Emblem"
-                    className="w-full h-full object-contain select-none"
-                    loading="eager"
-                  />
-                ) : (
-                  <Emblem size="lg" className="!w-full !h-full" />
-                )}
+            {/* Central Round Logo (Radiant Neon Glow & Classic Heritage Aura) */}
+            <div className="rounded-full neon-glow-gold-pulse ring-2 ring-[#FFF000] transition-all hover:scale-105 shrink-0 z-10 overflow-hidden bg-[#171852] shadow-2xl">
+              <div className="w-18 h-18 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden flex items-center justify-center select-none p-0.5">
+                <Emblem size="xl" className="!w-full !h-full" neonGlow />
               </div>
             </div>
 
@@ -116,31 +111,34 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
               A premier Pakistani educational institution committed to rigorous academic discipline, scientific inquiry, and the moral foundation of students from primary grades through matriculation and higher secondary levels.
             </p>
 
-            {/* Primary & Secondary Call to Actions */}
-            <div className="pt-1.5 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5">
+            {/* Primary & Secondary Call to Actions - One-Word Icon-Rich Language with Radiant Neon Glow */}
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5">
               <button
                 type="button"
                 onClick={() => onNavigate('admission-info')}
-                className="px-4 py-2.5 sm:px-6 sm:py-3.5 text-xs sm:text-sm font-extrabold text-[#171852] bg-[#FFF000] hover:bg-[#F5D900] rounded-xl transition-all shadow-lg flex items-center gap-1.5 sm:gap-2 cursor-pointer active:scale-95 border-2 border-[#F5D900]"
+                className="px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-extrabold text-[#171852] bg-[#FFF000] hover:bg-[#F5D900] neon-glow-gold rounded-xl transition-all shadow-lg flex items-center gap-2 cursor-pointer active:scale-95 border-2 border-[#F5D900]"
               >
-                <span>Admission Information</span>
-                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#171852]" />
+                <GraduationCap className="w-4 h-4 text-[#171852]" />
+                <span>Admissions</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#171852]" />
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigate('student-login')}
-                className="px-4 py-2.5 sm:px-6 sm:py-3.5 text-xs sm:text-sm font-bold text-white bg-[#20216B] hover:bg-[#2A2C8A] border-2 border-[#FFF000]/70 rounded-xl transition-all cursor-pointer shadow-md active:scale-95"
+                className="px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-bold text-white bg-[#20216B] hover:bg-[#2A2C8A] border-2 border-[#FFF000]/70 rounded-xl transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-2"
               >
-                Student Portal Login
+                <User className="w-4 h-4 text-[#FFF000]" />
+                <span>Portal</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigate('results')}
-                className="px-4 py-2.5 sm:px-6 sm:py-3.5 text-xs sm:text-sm font-semibold text-[#EEF0FF] hover:text-white bg-white/10 hover:bg-white/20 border border-white/30 rounded-xl transition-all cursor-pointer active:scale-95"
+                className="px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold text-[#EEF0FF] hover:text-white bg-white/10 hover:bg-white/20 border border-white/30 rounded-xl transition-all cursor-pointer active:scale-95 flex items-center gap-2"
               >
-                Verify Results
+                <Award className="w-4 h-4 text-[#FFF000]" />
+                <span>Results</span>
               </button>
             </div>
 

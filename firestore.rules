@@ -78,6 +78,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // 7b. Pages collection for branding and site-wide metadata
+    match /pages/{pageId} {
+      allow read, write: if true;
+    }
+
     // 8. Homepage Gallery Slides
     match /gallery_slides/{slideId} {
       allow read, write: if true;

@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { fetchSingleAppState, saveSingleAppState, LeadershipState } from '../services/firebaseService';
+import { 
+  saveOfficialBrandingLogo, 
+  updateBrowserIdentityTags, 
+  DEFAULT_OFFICIAL_LOGO,
+  LOCAL_STORAGE_LOGO_KEY 
+} from '../services/brandingPersistenceService';
 
 export const DEFAULT_CAMPUS_BANNER = '/src/assets/images/campus_main_building_1790434904126.jpg';
 export const DEFAULT_PRINCIPAL_PHOTO = '/src/assets/images/principal_portrait_1790434918701.jpg';
@@ -80,7 +86,6 @@ interface BrandingContextType {
   updateSocialMedia: (newState: SocialMediaState) => Promise<void>;
 }
 
-const LOCAL_STORAGE_LOGO_KEY = 'dare_arqam_custom_logo';
 const LOCAL_STORAGE_BANNER_KEY = 'dare_arqam_custom_banner';
 const LOCAL_STORAGE_BRANDING_KEY = 'dare_arqam_branding_details';
 const LOCAL_STORAGE_PRINCIPAL_PHOTO_KEY = 'dare_arqam_principal_photo';
@@ -111,13 +116,13 @@ const BrandingContext = createContext<BrandingContextType>({
 });
 
 export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize synchronously from localStorage for zero-flash high-speed rendering
-  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
+  // Initialize synchronously from localStorage or official permanent project asset
+  const [logoUrl, setLogoUrl] = useState<string>(() => {
     try {
-      return localStorage.getItem(LOCAL_STORAGE_LOGO_KEY) || null;
-    } catch {
-      return null;
-    }
+      const cached = localStorage.getItem(LOCAL_STORAGE_LOGO_KEY);
+      if (cached && cached.trim().length > 0) return cached;
+    } catch {}
+    return DEFAULT_OFFICIAL_LOGO;
   });
 
   const [bannerUrl, setBannerUrl] = useState<string | null>(() => {
@@ -206,6 +211,9 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (b.logoUrl && typeof b.logoUrl === 'string' && b.logoUrl.trim().length > 0) {
               setLogoUrl(b.logoUrl);
               localStorage.setItem(LOCAL_STORAGE_LOGO_KEY, b.logoUrl);
+              updateBrowserIdentityTags(b.logoUrl);
+            } else {
+              updateBrowserIdentityTags(DEFAULT_OFFICIAL_LOGO);
             }
             if (b.bannerUrl && typeof b.bannerUrl === 'string' && b.bannerUrl.trim().length > 0) {
               setBannerUrl(b.bannerUrl);
@@ -260,28 +268,33 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const updateLogo = async (newLogoUrl: string | null) => {
-    setLogoUrl(newLogoUrl);
-    try {
-      if (newLogoUrl) {
-        localStorage.setItem(LOCAL_STORAGE_LOGO_KEY, newLogoUrl);
-      } else {
+    if (!newLogoUrl) {
+      setLogoUrl(DEFAULT_OFFICIAL_LOGO);
+      try {
         localStorage.removeItem(LOCAL_STORAGE_LOGO_KEY);
-      }
-    } catch {}
+      } catch {}
+      updateBrowserIdentityTags(DEFAULT_OFFICIAL_LOGO);
+      try {
+        const currentState = await fetchSingleAppState() || {};
+        await saveSingleAppState({
+          ...currentState,
+          branding: {
+            ...(currentState.branding || {}),
+            logoUrl: DEFAULT_OFFICIAL_LOGO,
+            bannerUrl: bannerUrl || '',
+            institutionName,
+            tagline
+          }
+        });
+      } catch {}
+      return;
+    }
 
-    try {
-      const currentState = await fetchSingleAppState() || {};
-      await saveSingleAppState({
-        ...currentState,
-        branding: {
-          ...(currentState.branding || {}),
-          logoUrl: newLogoUrl || '',
-          bannerUrl: bannerUrl || '',
-          institutionName,
-          tagline
-        }
-      });
-    } catch {}
+    // Persist via permanent multi-tier service: static project assets + Firebase Storage + Firestore + DOM
+    const res = await saveOfficialBrandingLogo(newLogoUrl);
+    const finalUrl = res.url || newLogoUrl;
+    setLogoUrl(finalUrl);
+    updateBrowserIdentityTags(finalUrl);
   };
 
   const resetLogo = async () => {

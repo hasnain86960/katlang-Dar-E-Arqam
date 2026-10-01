@@ -22,6 +22,7 @@ import {
   Maximize2
 } from 'lucide-react';
 import { uploadToCloudinary } from '../../services/cloudinaryService';
+import { saveWebsiteLogo } from '../../services/brandingManager';
 
 interface LogoCustomizerModalProps {
   isOpen: boolean;
@@ -449,12 +450,10 @@ export const LogoCustomizerModal: React.FC<LogoCustomizerModalProps> = ({
     try {
       const highResDataUrl = generateExportDataUrl(1024);
 
-      const uploadRes = await uploadToCloudinary(highResDataUrl, {
-        folder: 'dare_arqam/branding',
-        resourceType: 'image',
-      });
+      // Permanently save across static assets, Firebase Storage, and Firestore
+      const res = await saveWebsiteLogo(highResDataUrl, { cropShape, bgMode, ringColor });
+      const finalUrl = res.url || highResDataUrl;
 
-      const finalUrl = uploadRes.success && uploadRes.url ? uploadRes.url : highResDataUrl;
       onApplyCroppedLogo(finalUrl);
       onClose();
     } catch (err) {

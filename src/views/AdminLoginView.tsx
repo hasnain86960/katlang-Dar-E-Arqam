@@ -76,7 +76,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onNavigate, onLo
 
           {/* Header */}
           <div className="text-center space-y-3 pb-6 border-b border-slate-200 mt-2">
-            <Emblem size="lg" className="mx-auto shadow-md" />
+            <Emblem size="lg" className="mx-auto shadow-md" neonGlow />
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono tracking-widest uppercase bg-[#20216B] text-[#FFF000] border border-[#F5D900]/50 font-bold mb-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#FFF000]" />

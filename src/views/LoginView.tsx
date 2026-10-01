@@ -151,7 +151,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
           {/* Institutional Emblem & Title */}
           <div className="text-center space-y-2 pt-3 pb-2">
-            <Emblem size="md" className="mx-auto shadow-md ring-1 ring-[#FFF000]/60" />
+            <Emblem size="md" className="mx-auto shadow-md" neonGlow />
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono tracking-widest uppercase bg-[#20216B] text-[#FFF000] border border-[#F5D900]/50 font-bold mb-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#FFF000]" />

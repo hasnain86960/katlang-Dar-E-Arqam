@@ -1,15 +1,17 @@
 import React from 'react';
-import { useBranding } from '../context/BrandingContext';
+import { useWebsiteLogo } from '../services/brandingManager';
 
 interface EmblemProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   customSrc?: string | null;
+  neonGlow?: boolean;
 }
 
-export const Emblem: React.FC<EmblemProps> = ({ className = '', size = 'md', customSrc }) => {
-  const { logoUrl } = useBranding();
-  const activeLogo = customSrc !== undefined ? customSrc : logoUrl;
+export const Emblem: React.FC<EmblemProps> = ({ className = '', size = 'md', customSrc, neonGlow = false }) => {
+  const websiteLogo = useWebsiteLogo();
+  const [imgError, setImgError] = React.useState(false);
+  const activeLogo = customSrc !== undefined ? customSrc : websiteLogo;
 
   const sizeMap = {
     sm: 'w-9 h-9',
@@ -19,12 +21,13 @@ export const Emblem: React.FC<EmblemProps> = ({ className = '', size = 'md', cus
   };
 
   const currentSize = sizeMap[size];
+  const glowClass = neonGlow ? 'neon-glow-gold ring-2 ring-[#FFF000]' : 'ring-1 ring-[#FFF000]/60';
 
-  // If a custom logo has been uploaded by the admin, render it with a modern ultra-slim smart border (NO wide white disc or messy padding)
-  if (activeLogo) {
+  // Render official custom or permanent project logo
+  if (activeLogo && !imgError) {
     return (
       <div 
-        className={`relative shrink-0 flex items-center justify-center rounded-full overflow-hidden select-none transition-all ring-1 ring-[#FFF000]/50 shadow-sm ${currentSize} ${className}`}
+        className={`relative shrink-0 flex items-center justify-center rounded-full overflow-hidden select-none transition-all shadow-md bg-[#171852] ${glowClass} ${currentSize} ${className}`}
         title="DAR - E - ARQAM Institutional Emblem"
       >
         <img
@@ -33,6 +36,7 @@ export const Emblem: React.FC<EmblemProps> = ({ className = '', size = 'md', cus
           className="w-full h-full object-contain select-none max-w-full max-h-full"
           loading="eager"
           decoding="async"
+          onError={() => setImgError(true)}
           style={{ imageRendering: 'auto' }}
         />
       </div>
