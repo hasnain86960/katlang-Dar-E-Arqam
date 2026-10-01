@@ -1556,3 +1556,77 @@ export async function fetchStudentAttendance(studentUid: string): Promise<Attend
   return [];
 }
 
+/**
+ * Changes a student's class (e.g. 9th -> 10th) from the admin panel.
+ */
+export async function adminUpdateStudentClass(uid: string, newClassName: string): Promise<void> {
+  if (!uid || !newClassName) throw new Error('Student UID and new class name required');
+  try {
+    await updateDoc(doc(db, 'students', uid), {
+      className: newClassName,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    await setDoc(doc(db, 'students', uid), {
+      className: newClassName,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  }
+}
+
+/**
+ * Deletes a student record permanently from the admin panel.
+ */
+export async function adminDeleteStudent(uid: string): Promise<void> {
+  if (!uid) throw new Error('Student UID required');
+  try {
+    await deleteDoc(doc(db, 'students', uid));
+  } catch (err) {
+    console.warn('Admin student delete notice:', err);
+  }
+}
+
+/**
+ * Manually adds a student directly to a specific class from the admin panel.
+ */
+export async function adminAddStudentManual(data: {
+  fullName: string;
+  fatherName: string;
+  className: string;
+  rollNumber: string;
+  whatsappNumber: string;
+  email: string;
+  section?: string;
+}): Promise<StudentProfile> {
+  const uid = `stu_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const qrIdentity = await createStudentQrIdentity(1);
+  const now = new Date().toISOString();
+
+  const profile: StudentProfile = {
+    uid,
+    fullName: data.fullName.trim(),
+    fatherName: data.fatherName.trim(),
+    className: data.className,
+    rollNumber: data.rollNumber.trim(),
+    whatsappNumber: data.whatsappNumber.trim(),
+    email: data.email.trim() || `${uid}@darearqam.edu.pk`,
+    section: data.section || 'Section A',
+    session: `${new Date().getFullYear()}–${new Date().getFullYear() + 1}`,
+    studentId: `DA-${new Date().getFullYear()}-${data.rollNumber.trim()}`,
+    createdAt: now,
+    updatedAt: now,
+    qrIdentity,
+  };
+
+  await setDoc(doc(db, 'students', uid), profile);
+  await setDoc(doc(db, 'qr_tokens', qrIdentity.tokenId), {
+    uid,
+    tokenId: qrIdentity.tokenId,
+    status: 'active',
+    createdAt: now,
+  });
+
+  return profile;
+}
+
+

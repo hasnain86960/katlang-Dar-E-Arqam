@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ensureStudentQrIdentity } from '../services/firebaseService';
 import { DEFAULT_BACK_TEMPLATE_SVG_DATA_URL } from '../services/idCardTemplateService';
+import { MemoizedQrCode } from './MemoizedQrCode';
 
 interface StudentIdCardBackProps {
   student: StudentProfile | any;
@@ -116,8 +117,7 @@ export const StudentIdCardBack: React.FC<StudentIdCardBackProps> = ({
             left: `${qrConfig.x}%`,
             top: `${qrConfig.y}%`,
             width: `${qrConfig.width}%`,
-            height: `${qrConfig.width}%`,
-            aspectRatio: '1 / 1',
+            height: `${qrConfig.height}%`,
           }}
         >
           {/* QR Box Container */}
@@ -127,38 +127,28 @@ export const StudentIdCardBack: React.FC<StudentIdCardBackProps> = ({
               padding: `${qrConfig.quietZone ?? 8}px`,
               borderRadius: `${qrConfig.borderRadius ?? 16}px`,
               border: `${qrConfig.borderWidth ?? 2}px solid ${qrConfig.borderColor ?? '#D4AF37'}`,
-              aspectRatio: '1 / 1',
             }}
           >
-            {instantQrUrl ? (
-              <div className="w-full h-full flex flex-col items-center justify-center relative">
-                <img
-                  src={instantQrUrl}
-                  alt="Student Permanent QR Code"
-                  className="w-full h-full object-contain block select-none"
-                  loading="eager"
-                  decoding="sync"
-                />
+            <div className="w-full h-full flex flex-col items-center justify-center relative">
+              <MemoizedQrCode
+                tokenId={qrIdentity?.tokenId || student.qrIdentity?.tokenId}
+                qrDataUrl={qrIdentity?.qrDataUrl || student.qrIdentity?.qrDataUrl}
+                fallbackData={student.uid || student.rollNumber || student.fullName || 'DA-STUDENT'}
+              />
 
-                {/* Revocation Warning Overlay */}
-                {isRevoked && (
-                  <div className="absolute inset-0 bg-red-950/90 backdrop-blur-2xs rounded flex flex-col items-center justify-center text-center p-2 text-red-200">
-                    <AlertTriangle className="w-6 h-6 text-rose-400 mb-0.5" />
-                    <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-rose-200">
-                      QR REVOKED
-                    </span>
-                    <span className="text-[8px] text-stone-300 leading-tight">
-                      Token Invalidated
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
-                <QrCode className="w-8 h-8 text-[#20216B] animate-pulse mb-1" />
-                <span className="text-[8px] font-mono font-bold text-[#20216B]">Loading QR...</span>
-              </div>
-            )}
+              {/* Revocation Warning Overlay */}
+              {isRevoked && (
+                <div className="absolute inset-0 bg-red-950/90 backdrop-blur-2xs rounded flex flex-col items-center justify-center text-center p-2 text-red-200">
+                  <AlertTriangle className="w-6 h-6 text-rose-400 mb-0.5" />
+                  <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider text-rose-200">
+                    QR REVOKED
+                  </span>
+                  <span className="text-[8px] text-stone-300 leading-tight">
+                    Token Invalidated
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Optional Configured QR Label Below */}

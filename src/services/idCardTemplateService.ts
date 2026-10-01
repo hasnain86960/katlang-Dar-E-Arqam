@@ -374,6 +374,7 @@ export function normalizeTemplate(t: Partial<IdCardTemplate>): IdCardTemplate {
 
   const defaultFields = DEFAULT_TEMPLATE.fields;
   const sourceFields = t.frontFields || t.fields || defaultFields;
+  const sourceQr = t.backFields?.qrCode || DEFAULT_TEMPLATE.backFields!.qrCode;
 
   return {
     id: t.id || `tpl_${Date.now()}`,
@@ -405,17 +406,17 @@ export function normalizeTemplate(t: Partial<IdCardTemplate>): IdCardTemplate {
     },
     backFields: {
       qrCode: {
-        x: t.backFields?.qrCode?.x ?? 22.5,
-        y: t.backFields?.qrCode?.y ?? 25.0,
-        width: t.backFields?.qrCode?.width ?? 55.0,
-        height: t.backFields?.qrCode?.height ?? 34.375,
-        quietZone: t.backFields?.qrCode?.quietZone ?? 8,
-        borderRadius: t.backFields?.qrCode?.borderRadius ?? 16,
-        borderColor: t.backFields?.qrCode?.borderColor ?? '#D4AF37',
-        borderWidth: t.backFields?.qrCode?.borderWidth ?? 2,
-        showLabel: t.backFields?.qrCode?.showLabel ?? true,
-        label: t.backFields?.qrCode?.label ?? 'SCAN TO VERIFY STUDENT',
-        visible: t.backFields?.qrCode?.visible ?? true,
+        x: sourceQr.x ?? 22.5,
+        y: sourceQr.y ?? 25.0,
+        width: sourceQr.width ?? 55.0,
+        height: sourceQr.height ?? 34.375,
+        quietZone: sourceQr.quietZone ?? 8,
+        borderRadius: sourceQr.borderRadius ?? 16,
+        borderColor: sourceQr.borderColor ?? '#D4AF37',
+        borderWidth: sourceQr.borderWidth ?? 2,
+        showLabel: sourceQr.showLabel ?? true,
+        label: sourceQr.label ?? 'SCAN TO VERIFY STUDENT',
+        visible: sourceQr.visible ?? true,
       },
     },
   };
@@ -553,11 +554,14 @@ export async function saveTemplate(template: IdCardTemplate, publish = false): P
 
   const normalized = normalizeTemplate(template);
   const finalTemplate: IdCardTemplate = {
+    ...template,
     ...normalized,
     id: templateId,
     isActive: publish ? true : !!template.isActive,
     updatedAt: now,
     createdAt: template.createdAt || now,
+    frontFields: template.frontFields || template.fields || normalized.frontFields,
+    backFields: template.backFields || normalized.backFields,
   };
 
   try {

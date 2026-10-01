@@ -6,7 +6,10 @@ import {
   revokeStudentQrIdentity,
   restoreStudentQrIdentity,
   regenerateStudentQrIdentity,
-  ensureStudentQrIdentity
+  ensureStudentQrIdentity,
+  adminUpdateStudentClass,
+  adminDeleteStudent,
+  adminAddStudentManual
 } from '../../services/firebaseService';
 import { StudentIdCard } from '../StudentIdCard';
 import { 
@@ -33,7 +36,9 @@ import {
   AlertTriangle,
   Download,
   Lock,
-  Unlock
+  Unlock,
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 interface AdminClassManagerProps {
@@ -58,6 +63,96 @@ export const AdminClassManager: React.FC<AdminClassManagerProps> = ({
   const [inspectedStudent, setInspectedStudent] = useState<StudentProfile | null>(null);
   const [isQrActionLoading, setIsQrActionLoading] = useState(false);
   const [qrActionFeedback, setQrActionFeedback] = useState<string | null>(null);
+
+  // Manual Add Student Modal State
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [isSubmittingStudent, setIsSubmittingStudent] = useState(false);
+  const [newStudentForm, setNewStudentForm] = useState({
+    fullName: '',
+    fatherName: '',
+    rollNumber: '',
+    whatsappNumber: '',
+    email: '',
+    section: 'Section A',
+  });
+
+  const handleManualAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeClass) return;
+    if (!newStudentForm.fullName.trim() || !newStudentForm.rollNumber.trim()) {
+      alert('Please fill in Student Name and Roll Number.');
+      return;
+    }
+
+    try {
+      setIsSubmittingStudent(true);
+      await adminAddStudentManual({
+        fullName: newStudentForm.fullName,
+        fatherName: newStudentForm.fatherName || 'Guardian',
+        className: activeClass,
+        rollNumber: newStudentForm.rollNumber,
+        whatsappNumber: newStudentForm.whatsappNumber || '03000000000',
+        email: newStudentForm.email || `${Date.now()}@darearqam.edu.pk`,
+        section: newStudentForm.section || 'Section A',
+      });
+      if (onSuccessNotification) {
+        onSuccessNotification(`Successfully added ${newStudentForm.fullName} to ${activeClass}!`);
+      }
+      setIsAddStudentModalOpen(false);
+      setNewStudentForm({
+        fullName: '',
+        fatherName: '',
+        rollNumber: '',
+        whatsappNumber: '',
+        email: '',
+        section: 'Section A',
+      });
+    } catch (err: any) {
+      alert(`Error adding student: ${err.message || err}`);
+    } finally {
+      setIsSubmittingStudent(false);
+    }
+  };
+
+  const handleClassTransfer = async (student: StudentProfile, targetClass: string) => {
+    if (!student.uid || student.className === targetClass) return;
+    const confirmed = window.confirm(
+      `Transfer ${student.fullName} from ${student.className} to ${targetClass}?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await adminUpdateStudentClass(student.uid, targetClass);
+      if (onSuccessNotification) {
+        onSuccessNotification(`Transferred ${student.fullName} to ${targetClass} successfully!`);
+      }
+      if (inspectedStudent && inspectedStudent.uid === student.uid) {
+        setInspectedStudent({ ...inspectedStudent, className: targetClass });
+      }
+    } catch (err: any) {
+      alert(`Error transferring class: ${err.message || err}`);
+    }
+  };
+
+  const handleDeleteStudentRecord = async (student: StudentProfile) => {
+    if (!student.uid) return;
+    const confirmed = window.confirm(
+      `⚠️ Are you sure you want to PERMANENTLY DELETE student "${student.fullName}" (Roll #${student.rollNumber})? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await adminDeleteStudent(student.uid);
+      if (onSuccessNotification) {
+        onSuccessNotification(`Student ${student.fullName} deleted successfully.`);
+      }
+      if (inspectedStudent && inspectedStudent.uid === student.uid) {
+        setInspectedStudent(null);
+      }
+    } catch (err: any) {
+      alert(`Error deleting student: ${err.message || err}`);
+    }
+  };
 
   // Handle revoking QR Identity
   const handleRevokeQr = async (student: StudentProfile) => {
@@ -412,26 +507,37 @@ export const AdminClassManager: React.FC<AdminClassManagerProps> = ({
               )}
             </div>
 
-            {/* Right: Quick Switch Class Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-stone-400 font-mono hidden lg:inline">Switch:</span>
-              <div className="relative">
-                <select
-                  value={activeClass}
-                  onChange={(e) => {
-                    setActiveClass(e.target.value);
-                    setSearchQuery('');
-                  }}
-                  className="px-3 py-2 bg-[#161B30] border border-[#263352] rounded-xl text-xs font-bold text-[#FFF000] cursor-pointer focus:outline-hidden pr-8 appearance-none"
-                >
-                  {DARE_ARQAM_CLASSES.map((cls) => (
-                    <option key={cls} value={cls}>
-                      {cls} ({studentsByClass[cls]?.length || 0})
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400 text-xs">
-                  ▼
+            {/* Right: Add Student & Quick Switch Class Dropdown */}
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsAddStudentModalOpen(true)}
+                className="px-3.5 py-2 bg-[#20216B] hover:bg-[#171852] text-[#FFF000] border border-[#D4AF37]/60 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+              >
+                <Plus className="w-4 h-4 text-[#FFF000]" />
+                <span>+ Add Student</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-stone-400 font-mono hidden lg:inline">Switch:</span>
+                <div className="relative">
+                  <select
+                    value={activeClass}
+                    onChange={(e) => {
+                      setActiveClass(e.target.value);
+                      setSearchQuery('');
+                    }}
+                    className="px-3 py-2 bg-[#161B30] border border-[#263352] rounded-xl text-xs font-bold text-[#FFF000] cursor-pointer focus:outline-hidden pr-8 appearance-none"
+                  >
+                    {DARE_ARQAM_CLASSES.map((cls) => (
+                      <option key={cls} value={cls}>
+                        {cls} ({studentsByClass[cls]?.length || 0})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400 text-xs">
+                    ▼
+                  </div>
                 </div>
               </div>
             </div>
@@ -599,15 +705,49 @@ export const AdminClassManager: React.FC<AdminClassManagerProps> = ({
                       </div>
                     </div>
 
-                    {/* Bottom: View ID Card CTA Button */}
-                    <button
-                      type="button"
-                      onClick={() => setInspectedStudent(student)}
-                      className="w-full py-2 px-3 bg-[#1B233D] hover:bg-[#20216B] text-stone-200 hover:text-[#FFF000] border border-[#2D3A5D] hover:border-[#D4AF37]/60 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
-                    >
-                      <IdCard className="w-3.5 h-3.5 text-[#FFF000]" />
-                      <span>View Complete Profile & ID Card</span>
-                    </button>
+                    {/* Bottom Actions: View ID Card, Change Class, Delete */}
+                    <div className="space-y-2 pt-2 border-t border-[#1E293B]">
+                      <button
+                        type="button"
+                        onClick={() => setInspectedStudent(student)}
+                        className="w-full py-2 px-3 bg-[#1B233D] hover:bg-[#20216B] text-stone-200 hover:text-[#FFF000] border border-[#2D3A5D] hover:border-[#D4AF37]/60 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <IdCard className="w-3.5 h-3.5 text-[#FFF000]" />
+                        <span>View Complete Profile & ID Card</span>
+                      </button>
+
+                      <div className="flex items-center justify-between gap-2">
+                        {/* Change Class Dropdown */}
+                        <div className="relative flex-1">
+                          <select
+                            value={student.className || activeClass}
+                            onChange={(e) => handleClassTransfer(student, e.target.value)}
+                            className="w-full py-1.5 px-2 bg-[#12172A] border border-[#263352] rounded-lg text-[11px] font-mono font-bold text-stone-300 cursor-pointer focus:outline-hidden pr-6 appearance-none"
+                            title="Change Student Class"
+                          >
+                            <option value="" disabled>Change Class...</option>
+                            {DARE_ARQAM_CLASSES.map((cls) => (
+                              <option key={cls} value={cls}>
+                                Class: {cls}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[10px] text-stone-400">
+                            ▼
+                          </div>
+                        </div>
+
+                        {/* Delete Student Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStudentRecord(student)}
+                          className="p-1.5 text-stone-400 hover:text-rose-400 hover:bg-rose-950/60 rounded-lg border border-[#263352] transition-colors cursor-pointer"
+                          title="Delete Student Record"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -765,6 +905,121 @@ export const AdminClassManager: React.FC<AdminClassManagerProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. Manual Add Student Modal */}
+      {/* ========================================================================= */}
+      {isAddStudentModalOpen && activeClass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[#0F1424] border-2 border-[#20216B] rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-[#FFF000]" />
+                <h3 className="font-editorial text-lg font-bold text-white">
+                  Add Student to {activeClass}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddStudentModalOpen(false)}
+                className="p-1.5 text-stone-400 hover:text-white bg-[#161B30] hover:bg-[#1E2540] rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualAddSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-stone-300 font-bold">Student Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newStudentForm.fullName}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, fullName: e.target.value })}
+                  placeholder="e.g. Hasnain Qadir"
+                  className="w-full px-3.5 py-2.5 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white placeholder-stone-500 focus:outline-hidden focus:border-[#D4AF37]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-stone-300 font-bold">Father Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newStudentForm.fatherName}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, fatherName: e.target.value })}
+                  placeholder="e.g. Qadir Khan"
+                  className="w-full px-3.5 py-2.5 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white placeholder-stone-500 focus:outline-hidden focus:border-[#D4AF37]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-mono text-stone-300 font-bold">Roll Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newStudentForm.rollNumber}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, rollNumber: e.target.value })}
+                    placeholder="e.g. 8696"
+                    className="w-full px-3.5 py-2.5 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white placeholder-stone-500 focus:outline-hidden focus:border-[#D4AF37]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono text-stone-300 font-bold">Section</label>
+                  <input
+                    type="text"
+                    value={newStudentForm.section}
+                    onChange={(e) => setNewStudentForm({ ...newStudentForm, section: e.target.value })}
+                    placeholder="Section A"
+                    className="w-full px-3.5 py-2.5 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white placeholder-stone-500 focus:outline-hidden focus:border-[#D4AF37]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-stone-300 font-bold">WhatsApp Number</label>
+                <input
+                  type="text"
+                  value={newStudentForm.whatsappNumber}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, whatsappNumber: e.target.value })}
+                  placeholder="03001234567"
+                  className="w-full px-3.5 py-2.5 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white placeholder-stone-500 focus:outline-hidden focus:border-[#D4AF37]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-stone-300 font-bold">Email Address</label>
+                <input
+                  type="email"
+                  value={newStudentForm.email}
+                  onChange={(e) => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
+                  placeholder="student@gmail.com"
+                  className="w-full px-3.5 py-2.5 bg-[#161B30] border border-[#263352] rounded-xl text-xs text-white placeholder-stone-500 focus:outline-hidden focus:border-[#D4AF37]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#1E293B]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStudentModalOpen(false)}
+                  className="px-4 py-2 bg-[#161B30] hover:bg-[#1E2540] text-stone-300 text-xs font-bold rounded-xl border border-[#263352] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingStudent}
+                  className="px-5 py-2 bg-[#20216B] hover:bg-[#171852] disabled:opacity-50 text-[#FFF000] text-xs font-bold rounded-xl border border-[#D4AF37]/60 cursor-pointer shadow-xs"
+                >
+                  {isSubmittingStudent ? 'Creating & Generating QR...' : 'Save & Add Student'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
